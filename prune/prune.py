@@ -1,9 +1,75 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.utils.prune as prune
+import time
 
 from models.vit_vision_encoder import vit_1M
 from models.text_encoder import TextEncoder
+from models.sigclip import SigCLIP
+
+def count_parameters(model):
+    """
+    Counts the total and non-zero parameters in the model.
+
+    Args:
+        model (nn.Module): The PyTorch model.
+
+    Returns:
+        total_params (int): Total number of parameters.
+        non_zero_params (int): Number of non-zero parameters.
+    """
+    total_params = 0
+    non_zero_params = 0
+    for param in model.parameters():
+        total_params += param.numel()
+        non_zero_params += param.nonzero().size(0)
+    return total_params, non_zero_params
+
+def check_sparsity(model):
+    """
+    Prints the sparsity of each pruned layer in the model.
+
+    Args:
+        model (nn.Module): The pruned PyTorch model.
+    """
+    for name, module in model.named_modules():
+        if isinstance(module, (nn.Conv2d, nn.Linear)):
+            if hasattr(module, 'weight_mask'):
+                mask = module.weight_mask
+                sparsity = 100. * float(mask.nelement() - mask.sum()) / mask.nelement()
+                print(f"Sparsity in {name}: {sparsity:.2f}%")
+
+def measure_inference_speed(model, input_size=(1, 3, 224, 224), device='cpu', runs=100):
+    """
+    Measures the average inference time of the model.
+
+    Args:
+        model (nn.Module): The PyTorch model.
+        input_size (tuple): The size of the input tensor.
+        device (str): The device to run the model on ('cpu' or 'cuda').
+        runs (int): Number of inference runs to average.
+
+    Returns:
+        float: Average inference time in milliseconds.
+    """
+    model.to(device)
+    model.eval()
+    dummy_input = torch.randn(input_size).to(device)
+    
+    # Warm-up
+    with torch.no_grad():
+        for _ in range(10):
+            _ = model(dummy_input)
+    
+    start_time = time.time()
+    with torch.no_grad():
+        for _ in range(runs):
+            _ = model(dummy_input)
+    end_time = time.time()
+    
+    avg_time = (end_time - start_time) / runs * 1000  # milliseconds
+    print(f"Average Inference Time over {runs} runs: {avg_time:.4f} ms")
+    return avg_time
 
 def unstructured_prune_model(model, prune_ratio):
     """
@@ -55,28 +121,87 @@ def unstructured_prune_model(model, prune_ratio):
     
     return model
 
-def structured_prune_model(model, prune_ratio):
+def apply_global_structured_pruning(model, pruning_amount=0.2):
     """
-    _summary_ : Prune a model layer-wise
+    Applies global structured pruning to the model.
 
     Args:
-        model (torch.nn.Module): Model to prune
-        prune_ratio (float): Prune ratio
+        model (nn.Module): The PyTorch model to prune.
+        pruning_amount (float): The fraction of structures to prune globally (0 < pruning_amount < 1).
 
     Returns:
-        torch.nn.Module: Pruned model
+        nn.Module: The pruned model.
     """
-    pass
+    parameters_to_prune = []
+
+    # Collect structured parameters (filters/channels for Conv2d and neurons for Linear)
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Conv2d):
+            parameters_to_prune.append((module, 'weight'))
+        elif isinstance(module, nn.Linear):
+            parameters_to_prune.append((module, 'weight'))
+    
+    # Define custom global structured pruning method based on L1 norm
+    class GlobalStructuredPruning(prune.BasePruningMethod):
+        PRUNING_TYPE = 'structured'
+        
+        def compute_mask(self, t, default_mask):
+            # Compute the L1 norm of each filter or neuron
+            if t.dim() == 4:  # Conv2d weight: (out_channels, in_channels, kH, kW)
+                norm = t.abs().sum(dim=(1, 2, 3))
+            elif t.dim() == 2:  # Linear weight: (out_features, in_features)
+                norm = t.abs().sum(dim=1)
+            else:
+                raise ValueError("Unsupported tensor dimension for structured pruning.")
+            
+            # Determine the cutoff threshold
+            threshold = torch.quantile(norm, pruning_amount)
+            
+            # Create mask: 0 for pruned structures, 1 otherwise
+            mask = norm > threshold
+            if t.dim() == 4:
+                mask = mask[:, None, None, None]
+            elif t.dim() == 2:
+                mask = mask[:, None]
+            return mask.type_as(t)
+    
+    # Apply the global structured pruning
+    prune.global_unstructured(
+        parameters_to_prune,
+        pruning_method=GlobalStructuredPruning,
+        amount=pruning_amount,
+    )
+    
+    # Remove pruning reparameterization to make pruning permanent
+    for module, param in parameters_to_prune:
+        prune.remove(module, param)
+    
+    # Calculate pruning statistics
+    total_params, non_zero_params = count_parameters(model)
+    pruning_ratio = 100. * (total_params - non_zero_params) / total_params
+    print(f"Total Parameters: {total_params}")
+    print(f"Non-zero Parameters after Pruning: {non_zero_params}")
+    print(f"Pruning Ratio: {pruning_ratio:.2f}%")
+    
+    return model
+
 
 if __name__ == "__main__":
     image_encoder = vit_1M(num_classes=1000, include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", include_fc=False)
-    
     model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
     
     prune_ratio = 0.5
-    model = unstructured_prune_model(model, prune_ratio)
+    model_unstructured = unstructured_prune_model(model, prune_ratio)
+    model_structured = apply_global_structured_pruning(model, pruning_amount=prune_ratio)
     
+    print("Unstructured Pruning:")
+    check_sparsity(model_unstructured)
+    measure_inference_speed(model_unstructured)
+    
+    print("\nStructured Pruning:")
+    check_sparsity(model_structured)
+    measure_inference_speed(model_structured)
     
     
     
