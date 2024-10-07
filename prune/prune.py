@@ -181,17 +181,14 @@ if __name__ == "__main__":
     text_encoder = TextEncoder(model_name="distilbert-base-uncased")
     model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
     
+    # check_sparsity(model)
+    # measure_inference_speed(model)
+    
     prune_ratio = 0.5
     model_unstructured = unstructured_prune_model(deepcopy(model), prune_ratio)
-    model_structured = apply_global_structured_pruning(deepcopy(model), pruning_amount=prune_ratio)
+    # model_structured = apply_global_structured_pruning(deepcopy(model), pruning_amount=prune_ratio)
     
-    print("Unstructured Pruning:")
-    check_sparsity(model_unstructured)
-    measure_inference_speed(model_unstructured)
-    
-    print("\nStructured Pruning:")
-    check_sparsity(model_structured)
-    measure_inference_speed(model_structured)
+
     
     
     

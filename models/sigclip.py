@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from models.vit_vision_encoder import vit_50M
-from models.text_encoder import TextEncoder
+from .vit_vision_encoder import vit_50M
+from .text_encoder import TextEncoder
 
 def get_feature_size(encoder):
     """Get the feature size from the encoder using a dummy input."""
