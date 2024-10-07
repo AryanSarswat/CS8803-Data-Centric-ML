@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from models.vit_vision_encoder import vit_1M
+from models.vit_vision_encoder import vit_50M
 from models.text_encoder import TextEncoder
 
 def get_feature_size(encoder):
@@ -73,7 +73,7 @@ class SigCLIP(torch.nn.Module):
         return self.text_projection(text_features)
     
 if __name__ == "__main__":
-    image_encoder = vit_1M(num_classes=1000, include_fc=False)
+    image_encoder = vit_50M(num_classes=1000, include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased")
 
     model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)

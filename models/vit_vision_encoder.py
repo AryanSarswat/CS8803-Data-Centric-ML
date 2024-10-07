@@ -159,7 +159,8 @@ class SimpleViT(nn.Module):
 
         self.to_latent = nn.Identity()
         
-        if include_fc:
+        self.include_fc = include_fc
+        if self.include_fc:
             self.linear_head = nn.Sequential(
                 nn.LayerNorm(dim),
                 nn.Linear(dim, num_classes)
@@ -182,7 +183,7 @@ class SimpleViT(nn.Module):
         
         return x
 
-def vit_1M(num_classes, include_fc=True):
+def vit_50M(num_classes, include_fc=True):
     model = SimpleViT(
         image_size = 224,
         patch_size = 32,
@@ -197,7 +198,7 @@ def vit_1M(num_classes, include_fc=True):
     
     return model    
 
-def vit_10M(num_classes, include_fc=True):
+def vit_100M(num_classes, include_fc=True):
     model = SimpleViT(
         image_size = 224,
         patch_size = 32,
@@ -212,7 +213,7 @@ def vit_10M(num_classes, include_fc=True):
     
     return model
 
-def vit_100M(num_classes, include_fc=True):
+def vit_200M(num_classes, include_fc=True):
     model = SimpleViT(
         image_size = 224,
         patch_size = 32,
@@ -229,4 +230,4 @@ def vit_100M(num_classes, include_fc=True):
 
 if __name__ == "__main__":
     model = vit_1M(num_classes=1000)
-    summary(model, (3, 224, 224))
+    summary(model, (3, 224, 224), depth=4)

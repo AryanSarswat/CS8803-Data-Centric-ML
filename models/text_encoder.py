@@ -1,6 +1,7 @@
 from torch import nn
 from transformers import DistilBertModel, DistilBertConfig
 from torchsummary import summary
+import numpy as np
 
 class TextEncoder(nn.Module):
 
@@ -19,4 +20,6 @@ class TextEncoder(nn.Module):
     
 if __name__ == "__main__":
     model = TextEncoder(model_name="distilbert-base-uncased")
-    summary(model, (1, 512))
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print(f"Total number of parameters = {params}")

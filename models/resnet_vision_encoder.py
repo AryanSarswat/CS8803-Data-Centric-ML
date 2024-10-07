@@ -1,7 +1,7 @@
 import torch
 import torch.nn as  nn
 import torch.nn.functional as F
-from torchsummmary import summary
+from torchsummary import summary
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -125,16 +125,16 @@ class ResNet(nn.Module):
 
         
         
-def ResNet50(num_classes, channels=3):
+def ResNet25(num_classes, channels=3):
     return ResNet(Bottleneck, [3,4,6,3], num_classes, channels)
     
-def ResNet101(num_classes, channels=3):
+def ResNet50(num_classes, channels=3):
     return ResNet(Bottleneck, [3,4,23,3], num_classes, channels)
 
-def ResNet152(num_classes, channels=3):
+def ResNet60(num_classes, channels=3):
     return ResNet(Bottleneck, [3,8,36,3], num_classes, channels)
 
 
 if __name__ == "__main__":
-    model = ResNet50(1000)
-    summary(model)
+    model = ResNet60(1000)
+    summary(model, (3,224,224), depth=4)
