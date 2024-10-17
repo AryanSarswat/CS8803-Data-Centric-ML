@@ -1,13 +1,12 @@
 from collections import namedtuple
-from packaging import version
 
 import torch
 import torch.nn.functional as F
-from torch import nn
-from torchsummary import summary
-
 from einops import rearrange
 from einops.layers.torch import Rearrange
+from packaging import version
+from torch import nn
+from torchsummary import summary
 
 # constants
 

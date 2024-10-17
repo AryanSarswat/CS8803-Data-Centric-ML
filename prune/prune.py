@@ -1,12 +1,14 @@
+import time
+from copy import deepcopy
+
 import torch
 import torch.nn as nn
 import torch.nn.utils.prune as prune
-import time
 
-from models.vit_vision_encoder import vit_50M
-from models.text_encoder import TextEncoder
 from models.sigclip import SigCLIP
-from copy import deepcopy
+from models.text_encoder import TextEncoder
+from models.vit_vision_encoder import vit_50M
+
 
 def count_parameters(model):
     """

@@ -1,7 +1,8 @@
 import torch
-import torch.nn as  nn
+import torch.nn as nn
 import torch.nn.functional as F
 from torchsummary import summary
+
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -125,14 +126,14 @@ class ResNet(nn.Module):
 
         
         
-def ResNet25(num_classes, channels=3):
-    return ResNet(Bottleneck, [3,4,6,3], num_classes, channels)
+def ResNet25(num_classes, channels=3, include_fc=True):
+    return ResNet(Bottleneck, [3,4,6,3], num_classes, channels, include_fc)
     
-def ResNet50(num_classes, channels=3):
-    return ResNet(Bottleneck, [3,4,23,3], num_classes, channels)
+def ResNet50(num_classes, channels=3, include_fc=True):
+    return ResNet(Bottleneck, [3,4,23,3], num_classes, channels, include_fc)
 
-def ResNet60(num_classes, channels=3):
-    return ResNet(Bottleneck, [3,8,36,3], num_classes, channels)
+def ResNet60(num_classes, channels=3, include_fc=True):
+    return ResNet(Bottleneck, [3,8,36,3], num_classes, channels, include_fc)
 
 
 if __name__ == "__main__":
