@@ -10,7 +10,6 @@ from tqdm import tqdm
 from dataloader.cc3m_dataloader import CC3MDataset
 from models.sigclip import SigCLIP, siglip_loss
 
-
 class Trainer:
     def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="") -> None:
         self.model = model
@@ -32,16 +31,22 @@ class Trainer:
         self.model.train()
         running_loss = 0.0
         for i, data in enumerate(tqdm(dataloader, desc="Training")):
-            images, texts = data
+            images, (input_ids, attention_mask) = data
+            input_ids = input_ids.squeeze(1)
+            attention_mask = attention_mask.squeeze(1)
+
             images = images.to(self.device, non_blocking=True)
-            logits = self.model(images, texts)
+            input_ids = input_ids.to(self.device, non_blocking=True)
+            attention_mask = attention_mask.to(self.device, non_blocking=True)
+
+            logits = self.model(images, input_ids, attention_mask)
             
             self.optimizer.zero_grad(set_to_none=True)
             loss = self.criterion(logits)
             loss.backward()
             self.optimizer.step()
             running_loss += loss.item()
-        
+
         return running_loss / len(dataloader)
     
     def evaluate(self, dataloader):
@@ -49,16 +54,22 @@ class Trainer:
         running_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(tqdm(dataloader, desc="Validation")):
-                images, texts = data
+                images, (input_ids, attention_mask) = data
+                input_ids = input_ids.squeeze(1)
+                attention_mask = attention_mask.squeeze(1)
+
                 images = images.to(self.device, non_blocking=True)
-                
-                logits = self.model(image, text)
+                input_ids = input_ids.to(self.device, non_blocking=True)
+                attention_mask = attention_mask.to(self.device, non_blocking=True)
+
+                logits = self.model(images, input_ids, attention_mask)
                 loss = self.criterion(logits)
                 running_loss += loss.item()
-        
+
         return running_loss / len(dataloader)
     
     def train(self, train_dataloader, val_dataloader, epochs):
+        best_val_loss = 1e100
         for epoch in range(epochs):
             train_loss = self.train_epoch(train_dataloader)
             val_loss = self.evaluate(val_dataloader)
@@ -68,10 +79,14 @@ class Trainer:
             
             print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}")
             self.scheduler.step(val_loss)
+
+            if val_loss < best_val_loss:
+                val_loss = best_val_loss
+                self.model.save("./saved_model.pth")
             
 if __name__ == "__main__":
     dataset = CC3MDataset(
-        csv_file='../LLaVA-CC3M-Pretrain-595K/metadata.json',
+        pickle_file='../LLaVA-CC3M-Pretrain-595K/preprocessed_image_text_pairs.pkl',
         root_dir='../LLaVA-CC3M-Pretrain-595K/images',
         transform=None
     )
@@ -82,8 +97,8 @@ if __name__ == "__main__":
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
 
-    train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, pin_memory=True, num_workers=8)
+    val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False, pin_memory=True, num_workers=8)
         
     image_encoder = ResNet25(1000, include_fc=False).to(device)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True).to(device)

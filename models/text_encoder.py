@@ -26,13 +26,14 @@ class TextEncoder(nn.Module):
     
     def tokenize(self, text):
         with torch.no_grad():
-            inputs = self.tokenizer(text[0], return_tensors="pt", padding=True, truncation=True)
+            inputs = self.tokenizer(text, padding="max_length", truncation=True, max_length=50, return_tensors="pt")
             input_ids = inputs["input_ids"]
             attention_mask = inputs["attention_mask"]
         
         return input_ids, attention_mask
 
-    def get_text_features(self, input_ids, attention_mask):
+    def get_text_features(self, text):
+        input_ids, attention_mask = self.tokenize(text)
         return self(input_ids, attention_mask)
     
 if __name__ == "__main__":
@@ -40,5 +41,8 @@ if __name__ == "__main__":
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f"Total number of parameters = {params}")
-    
-    print(model.get_text_features(["Hello, my dog is cute.", "This is interesting"]))
+    texts = [
+        "Hello, my dog is cute.",
+        "This is interesting",
+    ]
+    print(model.get_text_features(texts).shape)

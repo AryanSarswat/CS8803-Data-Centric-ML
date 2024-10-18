@@ -53,9 +53,9 @@ class SigCLIP(torch.nn.Module):
         self.t_prime = nn.Parameter(torch.ones([]) * init_tau)
         self.b = nn.Parameter(torch.ones([]) * init_b)
 
-    def forward(self, image, labels):
+    def forward(self, image, input_ids, attention_mask):
         image_features = self.extract_image_features(image)
-        text_features = self.extract_text_features(labels)
+        text_features = self.extract_text_features(input_ids, attention_mask)
         image_features = F.normalize(image_features, p=2, dim=-1)
         text_features = F.normalize(text_features, p=2, dim=-1)
         return image_features @ text_features.t() * self.t_prime.exp() + self.b
@@ -65,15 +65,9 @@ class SigCLIP(torch.nn.Module):
         image_features = image_features.view(image_features.size(0), -1)
         return self.image_projection(image_features)
 
-    def extract_text_features(self, text):
-        input_ids, attention_mask = self.text_encoder.tokenize(text)
-        input_ids = input_ids.to(self.text_encoder.device)
-        attention_mask = attention_mask.to(self.text_encoder.device)
-        text_features = self.text_encoder.get_text_features(input_ids, attention_mask)
+    def extract_text_features(self, input_ids, attention_mask):
+        text_features = self.text_encoder(input_ids, attention_mask)
         return self.text_projection(text_features)
-    
-    def tokenize_text(self, text):
-        return self.text_encoder.tokenize(text)
     
     def save(self, path):
         torch.save(self.state_dict(), path)
