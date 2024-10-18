@@ -7,7 +7,7 @@ from transformers import DistilBertConfig, DistilBertModel, DistilBertTokenizer
 
 class TextEncoder(nn.Module):
 
-    def __init__(self, model_name, pretrained=True):
+    def __init__(self, model_name, device=None, pretrained=True):
         super(TextEncoder, self).__init__()
         self.tokenizer = DistilBertTokenizer.from_pretrained(model_name)
         if pretrained:
@@ -16,16 +16,23 @@ class TextEncoder(nn.Module):
             config = DistilBertConfig()
             self.model = DistilBertModel(config)
 
+        if device:
+            self.device = device
+
     def forward(self, input_ids, attention_mask):
         output = self.model(input_ids=input_ids, attention_mask=attention_mask)
         last_hidden_state = output.last_hidden_state
         return last_hidden_state.mean(dim=1)
     
-    def get_text_features(self, text):
+    def tokenize(self, text):
         with torch.no_grad():
-            inputs = self.tokenizer(text, return_tensors="pt", padding=True, truncation=True)
+            inputs = self.tokenizer(text[0], return_tensors="pt", padding=True, truncation=True)
             input_ids = inputs["input_ids"]
             attention_mask = inputs["attention_mask"]
+        
+        return input_ids, attention_mask
+
+    def get_text_features(self, input_ids, attention_mask):
         return self(input_ids, attention_mask)
     
 if __name__ == "__main__":
@@ -34,4 +41,4 @@ if __name__ == "__main__":
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f"Total number of parameters = {params}")
     
-    print(model.get_text_features(["Hello, my dog is cute."]))
+    print(model.get_text_features(["Hello, my dog is cute.", "This is interesting"]))

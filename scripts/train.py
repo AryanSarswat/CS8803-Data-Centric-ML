@@ -1,8 +1,8 @@
 import torch
 import torch.optim as optim
 import wandb
-from model.resnet_vision_encoder import resnet50
-from model.text_encoder import TextEncoder
+from models.resnet_vision_encoder import ResNet50, ResNet25
+from models.text_encoder import TextEncoder
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 from tqdm import tqdm
@@ -32,11 +32,11 @@ class Trainer:
         self.model.train()
         running_loss = 0.0
         for i, data in enumerate(tqdm(dataloader, desc="Training")):
-            ids, image, text = data
-            ids, image, text = image.to(self.device, non_blocking=True), text.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)
+            images, texts = data
+            images = images.to(self.device, non_blocking=True)
+            logits = self.model(images, texts)
             
             self.optimizer.zero_grad(set_to_none=True)
-            logits = self.model(image, text)
             loss = self.criterion(logits)
             loss.backward()
             self.optimizer.step()
@@ -49,8 +49,8 @@ class Trainer:
         running_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(tqdm(dataloader, desc="Validation")):
-                ids, image, text = data
-                ids, image, text = image.to(self.device, non_blocking=True), text.to(self.device, non_blocking=True), labels.to(self.device, non_blocking=True)
+                images, texts = data
+                images = images.to(self.device, non_blocking=True)
                 
                 logits = self.model(image, text)
                 loss = self.criterion(logits)
@@ -71,25 +71,26 @@ class Trainer:
             
 if __name__ == "__main__":
     dataset = CC3MDataset(
-        csv_file='LLaVA-CC3M-Pretrain-595K/metadata.json',
-        root_dir='LLaVA-CC3M-Pretrain-595K/images',
-        transform=ToTensor()
+        csv_file='../LLaVA-CC3M-Pretrain-595K/metadata.json',
+        root_dir='../LLaVA-CC3M-Pretrain-595K/images',
+        transform=None
     )
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
 
-    train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=False)
-    
-    
-    image_encoder = resnet50(1000, include_fc=False)
-    text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False)
+        
+    image_encoder = ResNet25(1000, include_fc=False).to(device)
+    text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True).to(device)
     model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
     optimizer = optim.AdamW(model.parameters(), lr=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     criterion = siglip_loss
     
     trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=False, project_name="sigclip", experiment_name="cc3m")
-    trainer.train(train_dataloader, val_dataloader, epochs=3)
+    trainer.train(train_dataloader, val_dataloader, epochs=2)

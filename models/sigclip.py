@@ -10,9 +10,10 @@ from .vit_vision_encoder import vit_50M
 def get_feature_size(encoder):
     """Get the feature size from the encoder using a dummy input."""
     encoder.eval()
-    dummy_input = torch.randn(1, 3, 32, 32)
+    dummy_input = torch.randn(1, 3, 224, 224).cuda()
     output = encoder(dummy_input)
-    return output.shape[1]
+    flat_dim = output.view(output.size(0), -1)
+    return flat_dim.shape[1]
 
 def contrastive_loss(logits):
     targets = torch.arange(logits.size(0)).to(logits.device)
@@ -32,7 +33,7 @@ class SigCLIP(torch.nn.Module):
     def __init__(self,
                  image_encoder,
                  text_encoder,
-                 image_mlp_dim=False,
+                 image_mlp_dim=None,
                  text_mlp_dim=768,
                  proj_dim=256,
                  init_tau=np.log(1.0),
@@ -45,15 +46,9 @@ class SigCLIP(torch.nn.Module):
         self.image_encoder = image_encoder
         self.text_encoder = text_encoder
 
-        self.image_projection = torch.nn.Sequential(
-            torch.nn.Linear(image_mlp_dim, image_mlp_dim, bias=False),
-            torch.nn.ReLU(),
-            torch.nn.Linear(image_mlp_dim, proj_dim, bias=False))
+        self.image_projection = torch.nn.Linear(image_mlp_dim, proj_dim)
         
-        self.text_projection = torch.nn.Sequential(
-            torch.nn.Linear(text_mlp_dim, text_mlp_dim, bias=False),
-            torch.nn.ReLU(),
-            torch.nn.Linear(text_mlp_dim, proj_dim, bias=False))
+        self.text_projection = torch.nn.Linear(text_mlp_dim, proj_dim)
         
         self.t_prime = nn.Parameter(torch.ones([]) * init_tau)
         self.b = nn.Parameter(torch.ones([]) * init_b)
@@ -67,10 +62,14 @@ class SigCLIP(torch.nn.Module):
 
     def extract_image_features(self, images):
         image_features = self.image_encoder(images)
+        image_features = image_features.view(image_features.size(0), -1)
         return self.image_projection(image_features)
 
     def extract_text_features(self, text):
-        text_features = self.text_encoder.get_text_features(text)
+        input_ids, attention_mask = self.text_encoder.tokenize(text)
+        input_ids = input_ids.to(self.text_encoder.device)
+        attention_mask = attention_mask.to(self.text_encoder.device)
+        text_features = self.text_encoder.get_text_features(input_ids, attention_mask)
         return self.text_projection(text_features)
     
     def tokenize_text(self, text):

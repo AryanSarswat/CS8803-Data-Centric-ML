@@ -7,10 +7,12 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
+import pickle
 
 class CC3MDataset(Dataset):
-    def __init__(self, csv_file, root_dir, transform=None):
-        self.annotations = pd.read_json(csv_file)
+    def __init__(self, pickle_file, root_dir, transform=None):
+        with open(pickle_file, 'rb') as f:
+            self.annotations = pickle.load(f)
         self.root_dir = root_dir
         self.transform = transform
 
@@ -18,21 +20,21 @@ class CC3MDataset(Dataset):
         return len(self.annotations)
 
     def __getitem__(self, index):
-        img_path = os.path.join(self.root_dir, self.annotations.iloc[index, 1])
-        image = read_image(img_path)
-        image = image.permute(1, 2, 0)
-        label = [self.annotations.iloc[index, 2]]
+        img_path = os.path.join(self.root_dir, self.annotations[index]['image_path'])
+        image = read_image(img_path).float()
+        input_ids = self.annotations[index]['input_ids']
+        attention_mask = self.annotations[index]['attention_mask']
 
         if self.transform:
             image = self.transform(image)
 
-        return (image, label)
+        return (image, (input_ids, attention_mask))
 
     def show_image(self, index):
-        img_path = os.path.join(self.root_dir, self.annotations.iloc[index, 1])
+        img_path = os.path.join(self.root_dir, self.annotations.iloc[index, 0])
         image = read_image(img_path)
         image = image.permute(1, 2, 0)
-        label = [self.annotations.iloc[index, 2]]
+        label = [self.annotations.iloc[index, 1]]
         
         plt.imshow(image)
         plt.title(label)
@@ -40,7 +42,7 @@ class CC3MDataset(Dataset):
         
 if __name__ == '__main__':
     dataset = CC3MDataset(
-        csv_file='../LLaVA-CC3M-Pretrain-595K/metadata.json',
+        pickle_file='../LLaVA-CC3M-Pretrain-595K/preprocessed_image_text_pairs.pkl',
         root_dir='../LLaVA-CC3M-Pretrain-595K/images',
         transform=None
     )
@@ -51,11 +53,13 @@ if __name__ == '__main__':
     
     print(dataset[0])
     print(dataset[0][0].shape)
-    print(dataset[0][1])
+    print(dataset[0][1][0].shape)
+    print(dataset[0][1][1].shape)
 
-    for images, labels in dataloader:
+    for images, (input_ids, attn_mask) in dataloader:
         print(images.shape)
-        print(len(labels[0]))
+        print(input_ids.shape)
+        print(attn_mask.shape)
         break
     
         
