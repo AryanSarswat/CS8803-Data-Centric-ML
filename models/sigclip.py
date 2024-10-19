@@ -10,7 +10,7 @@ from .vit_vision_encoder import vit_50M
 def get_feature_size(encoder):
     """Get the feature size from the encoder using a dummy input."""
     encoder.eval()
-    dummy_input = torch.randn(1, 3, 224, 224).cuda()
+    dummy_input = torch.randn(1, 3, 224, 224)
     output = encoder(dummy_input)
     flat_dim = output.view(output.size(0), -1)
     return flat_dim.shape[1]
@@ -73,7 +73,7 @@ class SigCLIP(torch.nn.Module):
         torch.save(self.state_dict(), path)
         
     def load(self, path):
-        self.load_state_dict(torch.load(path))
+        self.load_state_dict(torch.load(path, weights_only=True))
 
     
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -JExpt_1                           # Job name
+#SBATCH -JExpt_Baseline                           # Job name
 #SBATCH -N1 --gres=gpu:RTX_6000:1 --ntasks-per-node=20   # Number of nodes, GPUs, and cores required
 #SBATCH -t960                            # Duration of the job (Ex: 15 mins)
 #SBATCH -oReport-%j.out                             # Combined output and error messages file

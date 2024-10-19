@@ -54,6 +54,7 @@ if __name__ == '__main__':
     print(dataset[0])
     print(dataset[0][0].shape)
     print(dataset[0][1][0].shape)
+    print(dataset[0][1][0])
     print(dataset[0][1][1].shape)
 
     for images, (input_ids, attn_mask) in dataloader:
