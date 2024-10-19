@@ -5,7 +5,7 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from dataloader.cifar_dataloader import get_cifar10_dataloader, get_cifar100_dataloader
-from models.sigclip import SigCLIP, siglip_loss
+from models.sigclip import SigCLIP, sigclip_loss
 from models.resnet_vision_encoder import ResNet25
 from models.text_encoder import TextEncoder
 

@@ -1,6 +1,0 @@
-einops==0.8.0
-numpy==2.1.2
-packaging==24.1
-torch==2.4.1
-torch-summary
-transformers==4.45.2

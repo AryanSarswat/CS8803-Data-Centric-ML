@@ -21,7 +21,7 @@ def contrastive_loss(logits):
     loss_texts = F.cross_entropy(logits.t(), targets)
     return (loss_images + loss_texts) / 2
 
-def siglip_loss(logits):
+def sigclip_loss(logits):
     n = logits.size(0)
     # -1 for off-diagonals and 1 for diagonals
     labels = 2 * torch.eye(n, device=logits.device) - 1

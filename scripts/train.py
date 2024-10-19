@@ -8,7 +8,7 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from dataloader.cc3m_dataloader import CC3MDataset
-from models.sigclip import SigCLIP, siglip_loss
+from models.sigclip import SigCLIP, sigclip_loss
 
 class Trainer:
     def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="") -> None:
@@ -26,7 +26,7 @@ class Trainer:
         if self.wandb_log:
             wandb.init(project=self.project_name, name=self.experiment_name)
             wandb.watch(self.model)
-    
+
     def train_epoch(self, dataloader):
         self.model.train()
         running_loss = 0.0
@@ -45,7 +45,11 @@ class Trainer:
             loss = self.criterion(logits)
             loss.backward()
             self.optimizer.step()
-            running_loss += loss.item()
+            l_ = loss.item()
+            running_loss += l_
+            
+            if self.wandb_log:
+                wandb.log({"batch_loss": l_})
 
         return running_loss / len(dataloader)
     

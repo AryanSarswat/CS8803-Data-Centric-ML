@@ -5,10 +5,10 @@
 #SBATCH -t960                            # Duration of the job (Ex: 15 mins)
 #SBATCH -oReport-%j.out                             # Combined output and error messages file
 #SBATCH --mail-type=END,FAIL                  # Mail preferences
-#SBATCH --mail-user=MAIL@gatech.edu           # e-mail address for notifications
+#SBATCH --mail-user=asarswat8@gatech.edu           # e-mail address for notifications
 
 cd $HOME/scratch/CS8803-Data-Centric-ML/                       # Change to working directory created in $HOME
 
 module load anaconda3                  # Load module dependencies
-conda activate env
+conda activate dml
 python3 main.py
