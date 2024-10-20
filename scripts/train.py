@@ -120,5 +120,5 @@ if __name__ == "__main__":
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     criterion = sigclip_loss
     
-    trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=False, project_name="sigclip", experiment_name="cc3m")
+    trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=False, project_name="sigclip", experiment_name="cc3m", test_script=True)
     trainer.train(train_dataloader, val_dataloader, epochs=2)

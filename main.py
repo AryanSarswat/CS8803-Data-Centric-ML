@@ -16,7 +16,7 @@ torch.backends.cudnn.benchmark = True
 
 def baseline():
     # Hyperparameters
-    EPOCHS = 15
+    EPOCHS = 20
     BATCH_SIZE = 128
     LEARNING_RATE = 2e-4
     WEIGHT_DECAY = 1e-6
@@ -46,7 +46,7 @@ def baseline():
     
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     criterion = sigclip_loss
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     trainer = Trainer(model, optimizer, criterion, scheduler, LOG_WANDB, PROJECT_NAME, EXPERIMENT_NAME)
     

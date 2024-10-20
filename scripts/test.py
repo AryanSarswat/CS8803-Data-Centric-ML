@@ -99,9 +99,6 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
     correct = 0
     total = 0
 
-    # Du
-    text_features = text_features.repeat(images.size(0), 1)
-
     with torch.no_grad():
         for batch in tqdm(dataloader, desc="Evaluating"):
 
@@ -115,11 +112,8 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
             image_features = sigclip_model.extract_image_features(images)
             image_features = F.normalize(image_features, p=2, dim=-1)
 
-            # Duplicate text features for each image
-            text_features_ = text_features.unsqueeze(0).repeat(images.size(0), 1, 1)
-
             # Compute similarity logits
-            logits = image_features @ text_features_.t() * torch.exp(sigclip_model.t_prime) + sigclip_model.b
+            logits = image_features @ text_features.t() * torch.exp(sigclip_model.t_prime) + sigclip_model.b
 
             # Predict classes
             predictions = logits.argmax(dim=1)
@@ -160,15 +154,15 @@ def zero_shot_classification_pipeline(sigclip_model, class_names, batch_size=128
     return accuracy
 
 if __name__ == "__main__":
-    model_path = './saved_models/sigclip_baseline.pth'  # Replace with your model path
     class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
     
     image_encoder = ResNet25(1000, include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
-    model = SigCLIP(image_encoder, text_encoder)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = SigCLIP(image_encoder, text_encoder).to(device)
 
     zero_shot_classification_pipeline(
-        model_path=model,
+        sigclip_model=model,
         class_names=class_names,
         batch_size=32,
         num_workers=4,
