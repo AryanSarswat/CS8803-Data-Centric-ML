@@ -23,7 +23,7 @@ def baseline():
     NUM_WORKERS = 20
     LOG_WANDB = True
     PROJECT_NAME = "sigclip"
-    EXPERIMENT_NAME = "baseline_pretrained"
+    EXPERIMENT_NAME = "baseline_pretrained_frozen"
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load the dataset
@@ -43,12 +43,14 @@ def baseline():
     image_encoder = ResNet50(include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
     model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
+    model.freeze_image_encoder()
+    model.freeze_text_encoder()
     
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     criterion = sigclip_loss
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
-    trainer = Trainer(model, optimizer, criterion, scheduler, LOG_WANDB, PROJECT_NAME, EXPERIMENT_NAME)
+    trainer = Trainer(model, optimizer, criterion, scheduler, LOG_WANDB, PROJECT_NAME, EXPERIMENT_NAME, freeze_backbones=True)
     
     trainer.train(train_dataloader, val_dataloader, EPOCHS)
     

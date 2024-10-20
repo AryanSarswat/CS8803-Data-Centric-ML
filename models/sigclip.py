@@ -46,9 +46,21 @@ class SigCLIP(torch.nn.Module):
         self.image_encoder = image_encoder
         self.text_encoder = text_encoder
 
-        self.image_projection = torch.nn.Linear(image_mlp_dim, proj_dim)
+        self.image_projection = nn.Sequential(
+            nn.Linear(image_mlp_dim, proj_dim),
+            nn.ReLU(),
+            nn.Linear(proj_dim, proj_dim),
+            nn.ReLU(),
+            nn.Linear(proj_dim, proj_dim),
+        )
         
-        self.text_projection = torch.nn.Linear(text_mlp_dim, proj_dim)
+        self.text_projection = nn.Sequential(
+            nn.Linear(text_mlp_dim, proj_dim),
+            nn.ReLU(),
+            nn.Linear(proj_dim, proj_dim),
+            nn.ReLU(),
+            nn.Linear(proj_dim, proj_dim),
+        )
         
         self.t_prime = nn.Parameter(torch.ones([]) * init_tau)
         self.b = nn.Parameter(torch.ones([]) * init_b)
@@ -59,6 +71,14 @@ class SigCLIP(torch.nn.Module):
         image_features = F.normalize(image_features, p=2, dim=-1)
         text_features = F.normalize(text_features, p=2, dim=-1)
         return image_features @ text_features.t() * self.t_prime.exp() + self.b
+
+    def freeze_image_encoder(self):
+        for param in self.image_encoder.parameters():
+            param.requires_grad = False
+
+    def freeze_text_encoder(self):
+        for param in self.text_encoder.parameters():
+            param.requires_grad = False
 
     def extract_image_features(self, images):
         image_features = self.image_encoder(images)

@@ -13,7 +13,7 @@ from models.sigclip import SigCLIP, sigclip_loss
 from .test import zero_shot_classification_pipeline
 
 class Trainer:
-    def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False) -> None:
+    def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False) -> None:
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -23,6 +23,7 @@ class Trainer:
         self.experiment_name = experiment_name
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.test_script = test_script
+        self.freeze_backbones = freeze_backbones
 
         self.cifar10_class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
         
@@ -33,6 +34,10 @@ class Trainer:
 
     def train_epoch(self, dataloader):
         self.model.train()
+        
+        if self.freeze_backbones:
+            self.model.freeze_image_encoder()
+            self.model.freeze_text_encoder()
         running_loss = 0.0
         for i, data in enumerate(tqdm(dataloader, desc="Training")):
             images, (input_ids, attention_mask) = data
@@ -116,9 +121,13 @@ if __name__ == "__main__":
     image_encoder = ResNet50(include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True)
     model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder).to(device)
+    model.freeze_image_encoder()
+    model.freeze_text_encoder()
+    params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Number of trainable parameters : {params}")
     optimizer = optim.AdamW(model.parameters(), lr=1e-5)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     criterion = sigclip_loss
     
-    trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=False, project_name="sigclip", experiment_name="cc3m", test_script=True)
+    trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=True, project_name="sigclip", experiment_name="cc3m", test_script=True)
     trainer.train(train_dataloader, val_dataloader, epochs=2)
