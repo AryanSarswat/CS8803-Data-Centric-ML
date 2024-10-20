@@ -113,10 +113,10 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, pin_memory=True, num_workers=8)
     val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False, pin_memory=True, num_workers=8)
         
-    image_encoder = ResNet50(include_fc=False).to(device)
-    text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True).to(device)
-    model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
-    optimizer = optim.AdamW(model.parameters(), lr=1e-4)
+    image_encoder = ResNet50(include_fc=False)
+    text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True)
+    model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder).to(device)
+    optimizer = optim.AdamW(model.parameters(), lr=1e-5)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     criterion = sigclip_loss
     

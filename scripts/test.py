@@ -156,7 +156,7 @@ def zero_shot_classification_pipeline(sigclip_model, class_names, batch_size=128
 if __name__ == "__main__":
     class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
     
-    image_encoder = ResNet25(1000, include_fc=False)
+    image_encoder = ResNet50(include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = SigCLIP(image_encoder, text_encoder).to(device)

@@ -1,5 +1,5 @@
 import torch
-from torchivsion.models import resnet18, resnet34, resnet50, resnet101, resnet152, ResNet18_Weights, ResNet34_Weights, ResNet50_Weights, ResNet101_Weights, ResNet152_Weights
+from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152, ResNet18_Weights, ResNet34_Weights, ResNet50_Weights, ResNet101_Weights, ResNet152_Weights
 from torchsummary import summary
         
 def ResNet18(num_classes, pretrained=True, include_fc=True):
@@ -36,6 +36,6 @@ def ResNet152(include_fc=True):
 
 
 if __name__ == "__main__":
-    model = ResNet50()
+    model = ResNet50(include_fc=False)
     summary(model, (3, 224, 224))
     
