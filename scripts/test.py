@@ -99,9 +99,6 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
     correct = 0
     total = 0
 
-    # Du
-    text_features = text_features.repeat(images.size(0), 1)
-
     with torch.no_grad():
         for batch in tqdm(dataloader, desc="Evaluating"):
             
@@ -115,11 +112,8 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
             image_features = sigclip_model.extract_image_features(images)
             image_features = F.normalize(image_features, p=2, dim=-1)
 
-            # Duplicate text features for each image
-            text_features_ = text_features.unsqueeze(0).repeat(images.size(0), 1, 1)
-
             # Compute similarity logits
-            logits = image_features @ text_features_.t() * torch.exp(sigclip_model.t_prime) + sigclip_model.b
+            logits = image_features @ text_features.t() * torch.exp(sigclip_model.t_prime) + sigclip_model.b
 
             # Predict classes
             predictions = logits.argmax(dim=1)
