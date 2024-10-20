@@ -13,7 +13,7 @@ from models.sigclip import SigCLIP, sigclip_loss
 from .test import zero_shot_classification_pipeline
 
 class Trainer:
-    def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="") -> None:
+    def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False) -> None:
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -22,6 +22,7 @@ class Trainer:
         self.project_name = project_name
         self.experiment_name = experiment_name
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.test_script = test_script
 
         self.cifar10_class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
         
@@ -51,6 +52,9 @@ class Trainer:
             l_ = loss.item()
             running_loss += l_
 
+            if self.test_script and i == 10:
+                break
+
             if self.wandb_log:
                 wandb.log({"batch_loss": l_})
 
@@ -72,6 +76,9 @@ class Trainer:
                 logits = self.model(images, input_ids, attention_mask)
                 loss = self.criterion(logits)
                 running_loss += loss.item()
+
+                if self.test_script and i == 10:
+                    break
 
         return running_loss / len(dataloader)
     
