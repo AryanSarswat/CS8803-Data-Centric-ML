@@ -10,6 +10,8 @@ from tqdm import tqdm
 from dataloader.cc3m_dataloader import CC3MDataset
 from models.sigclip import SigCLIP, sigclip_loss
 
+from .test import zero_shot_classification_pipeline
+
 class Trainer:
     def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="") -> None:
         self.model = model
@@ -20,12 +22,13 @@ class Trainer:
         self.project_name = project_name
         self.experiment_name = experiment_name
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.cifar10_class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
         
         self.model.to(self.device)
         
         if self.wandb_log:
             wandb.init(project=self.project_name, name=self.experiment_name)
-            wandb.watch(self.model)
 
     def train_epoch(self, dataloader):
         self.model.train()
@@ -47,7 +50,7 @@ class Trainer:
             self.optimizer.step()
             l_ = loss.item()
             running_loss += l_
-            
+
             if self.wandb_log:
                 wandb.log({"batch_loss": l_})
 
@@ -73,20 +76,19 @@ class Trainer:
         return running_loss / len(dataloader)
     
     def train(self, train_dataloader, val_dataloader, epochs):
-        best_val_loss = 1e100
         for epoch in range(epochs):
             train_loss = self.train_epoch(train_dataloader)
             val_loss = self.evaluate(val_dataloader)
+            zero_shot_acc = zero_shot_classification_pipeline(self.model, 
+                                                              self.cifar10_class_names)
             
             if self.wandb_log:
-                wandb.log({"train_loss": train_loss, "val_loss": val_loss})
+                wandb.log({"train_loss": train_loss, "val_loss": val_loss, 'cifar10_zero_shot': zero_shot_acc})
             
-            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}")
+            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}, CIFAR10_Zero_Shot_Accuracy : {zero_shot_acc:.2f}%")
             self.scheduler.step(val_loss)
 
-            if val_loss < best_val_loss:
-                val_loss = best_val_loss
-                self.model.save("./saved_model.pth")
+            
             
 if __name__ == "__main__":
     dataset = CC3MDataset(
@@ -104,12 +106,12 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, pin_memory=True, num_workers=8)
     val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False, pin_memory=True, num_workers=8)
         
-    image_encoder = ResNet25(1000, include_fc=False).to(device)
-    text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True).to(device)
-    model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
+    image_encoder = ResNet25(1000, include_fc=False)
+    text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True)
+    model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
-    criterion = siglip_loss
+    criterion = sigclip_loss
     
     trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=False, project_name="sigclip", experiment_name="cc3m")
     trainer.train(train_dataloader, val_dataloader, epochs=2)

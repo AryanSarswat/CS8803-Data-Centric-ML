@@ -20,8 +20,8 @@ def load_sigclip_model(model_path, device='cuda'):
     Returns:
         SigCLIP: Loaded SigCLIP model.
     """
-    image_encoder = ResNet25(1000, include_fc=False)  # Initialize your image encoder
-    text_encoder = TextEncoder("distilbert-base-uncased")  # Initialize your text encoder
+    image_encoder = ResNet25(1000, include_fc=False)
+    text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
 
     # Initialize SigCLIP
     sigclip_model = SigCLIP(image_encoder, text_encoder)
@@ -125,7 +125,7 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
     accuracy = (correct / total) * 100
     return accuracy
 
-def zero_shot_classification_pipeline(model_path, class_names, batch_size=32, num_workers=4, device='cuda'):
+def zero_shot_classification_pipeline(sigclip_model, class_names, batch_size=128, num_workers=16, device='cuda'):
     """
     Execute the zero-shot classification pipeline.
 
@@ -140,9 +140,6 @@ def zero_shot_classification_pipeline(model_path, class_names, batch_size=32, nu
     Returns:
         float: Zero-shot classification accuracy.
     """
-    # Load model
-    sigclip_model = load_sigclip_model(model_path, device)
-
     # Prepare DataLoader
     dataloader = prepare_dataloader(batch_size, num_workers, split='test')
 
@@ -157,11 +154,15 @@ def zero_shot_classification_pipeline(model_path, class_names, batch_size=32, nu
     return accuracy
 
 if __name__ == "__main__":
-    model_path = './saved_model.pth'  # Replace with your model path
+    model_path = './saved_models/sigclip_baseline.pth'  # Replace with your model path
     class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
+    
+    image_encoder = ResNet25(1000, include_fc=False)
+    text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
+    model = SigCLIP(image_encoder, text_encoder)
 
     zero_shot_classification_pipeline(
-        model_path=model_path,
+        model_path=model,
         class_names=class_names,
         batch_size=32,
         num_workers=4,

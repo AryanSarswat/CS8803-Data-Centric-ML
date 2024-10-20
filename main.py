@@ -10,6 +10,7 @@ from models.resnet_vision_encoder import ResNet25
 from models.sigclip import SigCLIP, sigclip_loss
 from models.text_encoder import TextEncoder
 from scripts.train import Trainer
+from scripts.test import zero_shot_classification_pipeline
 
 torch.backends.cudnn.benchmark = True
 
@@ -17,13 +18,14 @@ def baseline():
     # Hyperparameters
     EPOCHS = 15
     BATCH_SIZE = 128
-    LEARNING_RATE = 1e-4
-    WEIGHT_DECAY = 1e-5
+    LEARNING_RATE = 2e-4
+    WEIGHT_DECAY = 1e-6
     NUM_WORKERS = 20
     LOG_WANDB = True
     PROJECT_NAME = "sigclip"
     EXPERIMENT_NAME = "baseline"
-    
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     # Load the dataset
     dataset = CC3MDataset(
         pickle_file='../LLaVA-CC3M-Pretrain-595K/preprocessed_image_text_pairs.pkl',
@@ -51,8 +53,23 @@ def baseline():
     trainer.train(train_dataloader, val_dataloader, EPOCHS)
     
     # Save the model
-    os.makedirs("saved_models", exist_ok=True)
-    model.save("saved_models/sigclip_baseline.pth")
+    model_dir = "saved_models"
+    os.makedirs(model_dir, exist_ok=True)
+    model.save(model_path)
+
+    # Do Zero Shot Classification
+
+    class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
+
+    zero_shot_final = zero_shot_classification_pipeline(
+        model_path=model,
+        class_names=class_names,
+        batch_size=128,
+        num_workers=NUM_WORKERS,
+        device=DEVICE
+    )
+
+    print(f"Final Zero-shot Accuracy on CIFAR-10 is {zero_shot_final}")
     
 if __name__ == "__main__":
     baseline()
