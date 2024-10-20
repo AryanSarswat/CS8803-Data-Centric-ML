@@ -35,6 +35,7 @@ class Trainer:
         self.model.train()
         running_loss = 0.0
         for i, data in enumerate(tqdm(dataloader, desc="Training")):
+            print("i: ", i, " date: ", data)
             images, (input_ids, attention_mask) = data
             input_ids = input_ids.squeeze(1)
             attention_mask = attention_mask.squeeze(1)

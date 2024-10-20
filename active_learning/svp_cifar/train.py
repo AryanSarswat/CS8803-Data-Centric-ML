@@ -5,10 +5,10 @@ from torch import cuda
 from torch import nn, optim
 from torch.optim import Optimizer  # type: ignore
 
-from svp_common import utils
-from svp_cifar.models import MODELS
-from svp_cifar.datasets import create_dataset
-from svp_common.train import run_training, create_loaders
+import active_learning.svp_common.utils
+from active_learning.svp_cifar.models import MODELS
+from active_learning.svp_cifar.datasets import create_dataset
+from active_learning.svp_common.train import run_training, create_loaders
 
 
 def train(run_dir: str = './run',

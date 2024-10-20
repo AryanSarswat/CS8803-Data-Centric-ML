@@ -6,11 +6,12 @@ import torch.nn.functional as F
 from .text_encoder import TextEncoder
 from .vit_vision_encoder import vit_50M
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def get_feature_size(encoder):
     """Get the feature size from the encoder using a dummy input."""
     encoder.eval()
-    dummy_input = torch.randn(1, 3, 224, 224)
+    dummy_input = torch.randn(1, 3, 224, 224).to(device)
     output = encoder(dummy_input)
     flat_dim = output.view(output.size(0), -1)
     return flat_dim.shape[1]

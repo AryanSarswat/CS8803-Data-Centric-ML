@@ -1,0 +1,1 @@
+{"run_dir": "./run", "datasets_dir": "./data", "dataset": "cifar10", "initial_subset": 1000, "shuffle": true, "rounds": [4000, 5000, 5000, 5000, 5000], "selection_method": "least_confidence", "num_workers": 0, "cuda": true, "device_ids": [0], "seed": 1578, "proxy_eval_batch_size": 128, "timestamp": "1729457458", "local_timestamp": "2024-10-20 12:50:57.654465"}

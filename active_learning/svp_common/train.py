@@ -12,8 +12,8 @@ from torch.optim import Optimizer  # type: ignore
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
 
-from svp_common import utils
-from svp_common.datasets import DatasetWithIndex
+import utils
+from active_learning.svp_common.datasets import DatasetWithIndex
 
 Loaders = Tuple[DataLoader, Optional[DataLoader], Optional[DataLoader]]
 

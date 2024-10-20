@@ -5,12 +5,12 @@ from typing import Tuple, Optional, Callable, Dict, Any
 import numpy as np
 from torch import nn, cuda
 
-from svp_common import utils
-from svp_cifar.datasets import create_dataset
-from svp_cifar.train import create_model_and_optimizer
-from svp_common.train import run_training, create_loaders
-from svp_common.selection import select
-from svp_common.coreset import validate_splits, ForgettingEventsMeter
+from active_learning.svp_common import utils
+from active_learning.svp_cifar.datasets import create_dataset
+from active_learning.svp_cifar.train import create_model_and_optimizer
+from active_learning.svp_common.train import run_training, create_loaders
+from active_learning.svp_common.selection import select
+from active_learning.svp_common.coreset import validate_splits, ForgettingEventsMeter
 
 
 def coreset(run_dir: str = './run',

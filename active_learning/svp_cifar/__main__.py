@@ -4,15 +4,15 @@ import torch
 import click
 import torch.backends.cudnn as cudnn
 
-from svp_common import utils
-from svp_common.cli import computing_options, miscellaneous_options
-from svp_common.active import SELECTION_METHODS as active_learning_methods
-from svp_common.coreset import SELECTION_METHODS as coreset_methods
-from svp_cifar.models import MODELS
-from svp_cifar.datasets import DATASETS
-from svp_cifar.train import train as train_function
-from svp_cifar.active import active as active_function
-from svp_cifar.coreset import coreset as coreset_function
+from active_learning.svp_common import utils
+from active_learning.svp_common.cli import computing_options, miscellaneous_options
+from active_learning.svp_common.active import SELECTION_METHODS as active_learning_methods
+from active_learning.svp_common.coreset import SELECTION_METHODS as coreset_methods
+from active_learning.svp_cifar.models import MODELS
+from active_learning.svp_cifar.datasets import DATASETS
+from active_learning.svp_cifar.train import train as train_function
+from active_learning.svp_cifar.active import active as active_function
+from active_learning.svp_cifar.coreset import coreset as coreset_function
 
 
 @click.group()

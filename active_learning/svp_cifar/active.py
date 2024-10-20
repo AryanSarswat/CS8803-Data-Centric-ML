@@ -10,27 +10,30 @@ from torch import cuda, nn
 import torch.optim as optim
 from torch.utils.data import Dataset, Subset
 
-from models.resnet_vision_encoder import ResNet50, ResNet25
+from models.resnet_vision_encoder import ResNet50
 from models.text_encoder import TextEncoder
 from torch.utils.data import DataLoader
 from models.sigclip import SigCLIP, sigclip_loss
-from train import Trainer
+from scripts.train import Trainer
 
-from svp_common import utils
-from svp_common.train import create_loaders
-from svp_cifar.datasets import create_dataset
-from svp_cifar.train import create_model_and_optimizer
-from svp_common.selection import select
-from svp_common.active import (generate_models,
-                               check_different_models,
-                               symlink_target_to_proxy,
-                               symlink_to_precomputed_proxy,
-                               validate_splits)
+from active_learning.svp_common import utils
+#from active_learning.svp_common.train import create_loaders
+#from svp_cifar.datasets import create_dataset
+#from svp_cifar.train import create_model_and_optimizer
+#from active_learning.svp_common.selection import select
+#from active_learning.svp_common.active import (generate_models,
+                               #check_different_models,
+                               #symlink_target_to_proxy,
+                               #symlink_to_precomputed_proxy,
+                               #validate_splits)
+#from active_learning.svp_common.active import validate_splits
 
 from dataloader.cifar_dataloader import get_cifar10_dataloader
 
 '''
 TODO: Update train proxy model function
+Training expects images and text, but cifar10 is just images??
+
 '''
 def train_proxy_model(train_dataset, model):
     # Split dataset into train/validation
@@ -45,8 +48,10 @@ def train_proxy_model(train_dataset, model):
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     criterion = sigclip_loss
 
-    trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=False, project_name="ActiveLearning", experiment_name="s0_train")
-    trainer.train(train_dataloader, val_dataloader, epochs=2)
+    trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=False, project_name="AL", experiment_name="AL-test", test_script=True)
+    print("Training proxy model")
+    trainer.train(train_dataloader, val_dataloader, epochs=1)
+    print("Done Training proxy model")
 
     return model
 
@@ -149,19 +154,34 @@ def _calc_preds_and_features(
     return preds, features
 
 
+def validate_splits(train_dataset: Dataset, validation: int,
+                    initial_subset: int, rounds: Tuple[int, ...]):
+    """
+    Ensure there is enough data for validation and selection rounds.
+    """
+    num_train = len(train_dataset)
+    assert validation < num_train and validation >= 0
+
+    num_train -= validation
+    assert initial_subset <= num_train and initial_subset > 0
+
+    num_train -= initial_subset
+    assert all(round_ > 0 for round_ in rounds)
+    assert sum(rounds) <= num_train
 '''
 The proxy is used for selecting which examples to label using the proxy model, returning
 
 while the target is only used for evaluating the
 quality of the selection. 
 '''
-def active(
+def active(run_dir: str = './run',
         datasets_dir: str = './data', dataset: str = 'cifar10',
         initial_subset: int = 1_000, shuffle: bool = True,
         rounds: Tuple[int, ...] = (4_000, 5_000, 5_000, 5_000, 5_000),
-        selection_method: str = 'least_confidence', 
-        cuda: bool = True, seed: Optional[int] = None):
-    
+        selection_method: str = 'least_confidence', num_workers: int = 0,
+        cuda: bool = True, device_ids: Tuple[int, ...] = tuple(range(cuda.device_count())),
+        seed: Optional[int] = None):
+        
     proxy_eval_batch_size = 128  # TODO: this was default, can change
     
     # Set seeds for reproducibility.
@@ -174,6 +194,8 @@ def active(
     # Update the computing arguments based on the runtime system.
     use_cuda, device, device_ids, num_workers = utils.config_run_env(
             cuda=cuda, device_ids=device_ids, num_workers=num_workers)
+    
+    print("device: ", device)
     
     # Training and testing dataset taken from cifar10
     train_loader, test_loader = get_cifar10_dataloader()  # TODO: Dataset to use???
@@ -193,7 +215,7 @@ def active(
         train_dataset, validation, run_dir, shuffle=shuffle)
     
     # TODO: Initialize with proxy SigCLIP model (this is from scratch for testing purposes)
-    image_encoder = ResNet25(1000, include_fc=False).to(device)
+    image_encoder = ResNet50(include_fc=False).to(device)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True).to(device)
     proxy_model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder).to(device)
 
@@ -207,6 +229,7 @@ def active(
     #utils.save_result(stats, os.path.join(run_dir, "proxy.csv"))
 
     for selection_size in rounds:
+        print("selection_size: ", selection_size)
         # Select additional data to label from the unlabeled pool
         labeled = select_least_confident(model, dataset, labeled, unlabeled_pool, selection_size, 
                                          proxy_eval_batch_size, device, device_ids, num_workers, use_cuda)
