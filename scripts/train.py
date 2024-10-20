@@ -1,7 +1,7 @@
 import torch
 import torch.optim as optim
 import wandb
-from models.resnet_vision_encoder import ResNet50, ResNet25
+from models.resnet_vision_encoder import ResNet50
 from models.text_encoder import TextEncoder
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, pin_memory=True, num_workers=8)
     val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False, pin_memory=True, num_workers=8)
         
-    image_encoder = ResNet25(1000, include_fc=False).to(device)
+    image_encoder = ResNet50(include_fc=False).to(device)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True).to(device)
     model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
     optimizer = optim.AdamW(model.parameters(), lr=1e-4)

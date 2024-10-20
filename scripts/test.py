@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from dataloader.cifar_dataloader import get_cifar10_dataloader, get_cifar100_dataloader
 from models.sigclip import SigCLIP, sigclip_loss
-from models.resnet_vision_encoder import ResNet25
+from models.resnet_vision_encoder import ResNet50
 from models.text_encoder import TextEncoder
 
 def load_sigclip_model(model_path, device='cuda'):
@@ -101,7 +101,7 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
 
     with torch.no_grad():
         for batch in tqdm(dataloader, desc="Evaluating"):
-
+            
             images = batch[0].to(device)
             labels = batch[1].to(device)
 
@@ -111,7 +111,10 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
             # Encode images
             image_features = sigclip_model.extract_image_features(images)
             image_features = F.normalize(image_features, p=2, dim=-1)
-
+            
+            # Duplicate text features for each image
+            text_features_ = text_features.unsqueeze(0).repeat(images.size(0), 1, 1)
+            
             # Compute similarity logits
             logits = image_features @ text_features.t() * torch.exp(sigclip_model.t_prime) + sigclip_model.b
 
