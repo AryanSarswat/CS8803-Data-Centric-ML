@@ -70,10 +70,12 @@ class SigCLIP(torch.nn.Module):
         return self.text_projection(text_features)
     
     def save(self, path):
-        torch.save(self.state_dict(), path)
+        torch.save(self.image_encoder, os.path.join(path, "baseline_image_encoder.pth"))
+        torch.save(self.text_encoder, os.path.join(path, "baseline_text_encoder.pth"))
         
-    def load(self, path):
-        self.load_state_dict(torch.load(path, weights_only=True))
+    def load(self, image_encoder_path, text_encoder_path):
+        self.image_encoder = torch.load(image_encoder_path, weights_only=False)
+        self.text_encoder = torch.load(text_encoder_path, weights_only=False)
 
     
 if __name__ == "__main__":
