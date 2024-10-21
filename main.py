@@ -1,4 +1,5 @@
 import os
+import argparse
 
 import torch
 import torch.optim as optim
@@ -14,10 +15,17 @@ from scripts.test import zero_shot_classification_pipeline
 
 torch.backends.cudnn.benchmark = True
 
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, default='../LLaVA-CC3M-Pretrain-595K')
+    args = parser.parse_args()
+    return args
+
 def baseline():
     # Hyperparameters
     EPOCHS = 20
-    BATCH_SIZE = 128
+    BATCH_SIZE = 4096 #128
     LEARNING_RATE = 1e-5
     WEIGHT_DECAY = 1e-6
     NUM_WORKERS = 20
@@ -25,11 +33,12 @@ def baseline():
     PROJECT_NAME = "sigclip"
     EXPERIMENT_NAME = "baseline_pretrained_frozen"
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    args = parse_args()
 
     # Load the dataset
     dataset = CC3MDataset(
-        pickle_file='../LLaVA-CC3M-Pretrain-595K/preprocessed_image_text_pairs.pkl',
-        root_dir='../LLaVA-CC3M-Pretrain-595K/images',
+        pickle_file=os.path.join(args.dataset, 'preprocessed_image_text_pairs.pkl'),
+        root_dir=os.path.join(args.dataset, 'images'),
         transform=None
     )
 

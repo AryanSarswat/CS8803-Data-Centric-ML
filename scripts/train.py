@@ -26,7 +26,6 @@ class Trainer:
         self.freeze_backbones = freeze_backbones
 
         self.cifar10_class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
-        
         self.model.to(self.device)
         
         if self.wandb_log:

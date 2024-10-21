@@ -5,9 +5,18 @@ from transformers import DistilBertConfig, DistilBertModel, DistilBertTokenizer
 import pandas as pd
 from tqdm import tqdm
 import pickle
+import os
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset', type=str, default='../LLaVA-CC3M-Pretrain-595K')
+    args = parser.parse_args()
+    return args
 
 if __name__ == "__main__":
-    meta_data_file = "../LLaVA-CC3M-Pretrain-595K/metadata.json"
+    args = parse_args()
+    meta_data_file = os.path.join(args.dataset, "metadata.json")
     annotations = pd.read_json(meta_data_file)
 
     image_text_pairs = []
@@ -23,7 +32,7 @@ if __name__ == "__main__":
             'attention_mask' : attention_mask
         })
 
-    with open('../LLaVA-CC3M-Pretrain-595K/preprocessed_image_text_pairs.pkl', 'wb') as f:
+    with open(os.path.join(args.dataset, 'preprocessed_image_text_pairs.pkl'), 'wb') as f:
         pickle.dump(image_text_pairs, f)
     
     
