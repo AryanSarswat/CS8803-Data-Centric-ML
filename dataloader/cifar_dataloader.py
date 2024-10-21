@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from torch.utils.data.distributed import DistributedSampler
 
 
 def get_cifar10_dataloader(batch_size=4, num_workers=8):
@@ -18,10 +19,11 @@ def get_cifar10_dataloader(batch_size=4, num_workers=8):
          ])
 
     train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler=DistributedSampler(dataset), num_workers=num_workers, pin_memory=True)
 
     test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
     
+    # TODO: do I need distributed sampler in test?
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
 
     return train_loader, test_loader

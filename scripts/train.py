@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.optim as optim
 import wandb
@@ -12,8 +13,10 @@ from models.sigclip import SigCLIP, sigclip_loss
 
 from .test import zero_shot_classification_pipeline
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+
 class Trainer:
-    def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False) -> None:
+    def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False, rank=0) -> None:
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -21,24 +24,27 @@ class Trainer:
         self.wandb_log = wandb_log
         self.project_name = project_name
         self.experiment_name = experiment_name
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = rank
         self.test_script = test_script
         self.freeze_backbones = freeze_backbones
 
         self.cifar10_class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
+        torch.cuda.set_device(self.device)
         self.model.to(self.device)
+        self.model = DDP(self.model, device_ids=[self.device])
         
         if self.wandb_log:
             wandb.init(project=self.project_name, name=self.experiment_name)
 
     def train_epoch(self, dataloader):
-        self.model.train()
+        self.model.module.train()
         
         if self.freeze_backbones:
-            self.model.freeze_image_encoder()
-            self.model.freeze_text_encoder()
+            self.model.module.freeze_image_encoder()
+            self.model.module.freeze_text_encoder()
         running_loss = 0.0
         for i, data in enumerate(tqdm(dataloader, desc="Training")):
+            # , disable=self.device != 0
             images, (input_ids, attention_mask) = data
             input_ids = input_ids.squeeze(1)
             attention_mask = attention_mask.squeeze(1)
@@ -65,7 +71,7 @@ class Trainer:
         return running_loss / len(dataloader)
     
     def evaluate(self, dataloader):
-        self.model.eval()
+        self.model.module.eval()
         running_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(tqdm(dataloader, desc="Validation")):

@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
 import pickle
+from torch.utils.data.distributed import DistributedSampler
 
 class CC3MDataset(Dataset):
     def __init__(self, pickle_file, root_dir, transform=None):
@@ -49,7 +50,7 @@ if __name__ == '__main__':
 
     print(f"Size of dataset : {len(dataset)}")
 
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False, sampler=DistributedSampler(dataset))
     
     print(dataset[0])
     print(dataset[0][0].shape)

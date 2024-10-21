@@ -5,6 +5,8 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
+import torch.multiprocessing as mp
+from torch.distributed import init_process_group, destroy_process_group
 
 from dataloader.cc3m_dataloader import CC3MDataset
 from models.resnet_vision_encoder import ResNet50
@@ -22,18 +24,24 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def baseline():
+def ddp_setup(rank, world_size):
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    init_process_group(backend='nccl', rank=rank, world_size=world_size)
+
+def baseline(rank, world_size):
     # Hyperparameters
     EPOCHS = 20
     BATCH_SIZE = 4096 #128
     LEARNING_RATE = 1e-5
     WEIGHT_DECAY = 1e-6
-    NUM_WORKERS = 20
+    NUM_WORKERS = 0 #20
     LOG_WANDB = True
     PROJECT_NAME = "sigclip"
     EXPERIMENT_NAME = "baseline_pretrained_frozen"
-    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     args = parse_args()
+
+    ddp_setup(rank, world_size)
 
     # Load the dataset
     dataset = CC3MDataset(
@@ -59,11 +67,12 @@ def baseline():
     criterion = sigclip_loss
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
-    trainer = Trainer(model, optimizer, criterion, scheduler, LOG_WANDB, PROJECT_NAME, EXPERIMENT_NAME, freeze_backbones=True)
+    trainer = Trainer(model, optimizer, criterion, scheduler, LOG_WANDB, PROJECT_NAME, EXPERIMENT_NAME, freeze_backbones=True, rank=rank)
     
     trainer.train(train_dataloader, val_dataloader, EPOCHS)
     
     # Save the model
+    # TODO: ensure model is saved only from rank 0 process
     model_dir = "saved_models"
     os.makedirs(model_dir, exist_ok=True)
     model.save(model_path)
@@ -81,6 +90,8 @@ def baseline():
     )
 
     print(f"Final Zero-shot Accuracy on CIFAR-10 is {zero_shot_final}")
+    destroy_process_group()
     
 if __name__ == "__main__":
-    baseline()
+    world_size = torch.cuda.device_count()
+    mp.spawn(baseline, args=[world_size], nprocs=world_size)
