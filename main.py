@@ -1,4 +1,5 @@
 import os
+import pickle
 import argparse
 
 import torch
@@ -6,7 +7,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 import torch.multiprocessing as mp
+# mp.set_sharing_strategy('file_system')
 from torch.distributed import init_process_group, destroy_process_group
+from torch.utils.data.distributed import DistributedSampler
 
 from dataloader.cc3m_dataloader import CC3MDataset
 from models.resnet_vision_encoder import ResNet50
@@ -16,7 +19,6 @@ from scripts.train import Trainer
 from scripts.test import zero_shot_classification_pipeline
 
 torch.backends.cudnn.benchmark = True
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -28,6 +30,7 @@ def ddp_setup(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
     init_process_group(backend='nccl', rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
 
 def baseline(rank, world_size):
     # Hyperparameters
@@ -35,17 +38,21 @@ def baseline(rank, world_size):
     BATCH_SIZE = 4096 #128
     LEARNING_RATE = 1e-5
     WEIGHT_DECAY = 1e-6
-    NUM_WORKERS = 0 #20
+    NUM_WORKERS = 0 # 20
     LOG_WANDB = True
     PROJECT_NAME = "sigclip"
     EXPERIMENT_NAME = "baseline_pretrained_frozen"
     args = parse_args()
 
+    pickle_file=os.path.join(args.dataset, 'preprocessed_image_text_pairs.pkl')
+    with open(pickle_file, 'rb') as f:
+        annotations = pickle.load(f)
+
     ddp_setup(rank, world_size)
 
     # Load the dataset
     dataset = CC3MDataset(
-        pickle_file=os.path.join(args.dataset, 'preprocessed_image_text_pairs.pkl'),
+        annotations=annotations,
         root_dir=os.path.join(args.dataset, 'images'),
         transform=None
     )
@@ -53,8 +60,8 @@ def baseline(rank, world_size):
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, num_workers=NUM_WORKERS)
-    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=True, num_workers=NUM_WORKERS)
+    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=True, num_workers=NUM_WORKERS, sampler=DistributedSampler(train_dataset))
+    val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, pin_memory=True, num_workers=NUM_WORKERS, sampler=DistributedSampler(val_dataset))
     
     # Load the model
     image_encoder = ResNet50(include_fc=False)
