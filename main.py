@@ -35,10 +35,10 @@ def ddp_setup(rank, world_size):
 def baseline(rank, world_size):
     # Hyperparameters
     EPOCHS = 20
-    BATCH_SIZE = 4096 #128
+    BATCH_SIZE = 2048 #128
     LEARNING_RATE = 1e-5
     WEIGHT_DECAY = 1e-6
-    NUM_WORKERS = 0 # 20
+    NUM_WORKERS = 0
     LOG_WANDB = True
     PROJECT_NAME = "sigclip"
     EXPERIMENT_NAME = "baseline_pretrained_frozen"
