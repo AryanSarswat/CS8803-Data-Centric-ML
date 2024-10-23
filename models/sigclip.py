@@ -6,6 +6,8 @@ import torch.nn.functional as F
 from .text_encoder import TextEncoder
 from .vit_vision_encoder import vit_50M
 
+from transformers import SiglipConfig, SiglipTextModel, SiglipVisionModel
+
 
 def get_feature_size(encoder):
     """Get the feature size from the encoder using a dummy input."""
@@ -22,11 +24,17 @@ def contrastive_loss(logits):
     return (loss_images + loss_texts) / 2
 
 def sigclip_loss(logits):
-    n = logits.size(0)
-    # -1 for off-diagonals and 1 for diagonals
-    labels = 2 * torch.eye(n, device=logits.device) - 1
-    # pairwise sigmoid loss
-    return -torch.sum(F.logsigmoid(labels * logits)) / n
+    # n = logits.size(0)
+    # # -1 for off-diagonals and 1 for diagonals
+    # labels = 2 * torch.eye(n, device=logits.device) - 1
+    # # pairwise sigmoid loss
+    # return -torch.sum(F.logsigmoid(labels * logits)) / n
+    eye = torch.eye(logits.size(0), device=logits.device)
+    m1_diag1 = -torch.ones_like(logits) + 2 * eye
+    loglik = F.logsigmoid(m1_diag1 * logits)
+    nll = -torch.sum(loglik, dim=-1)
+    loss = nll.mean()
+    return loss
 
 class SigCLIP(torch.nn.Module):
 
@@ -68,8 +76,8 @@ class SigCLIP(torch.nn.Module):
     def forward(self, image, input_ids, attention_mask):
         image_features = self.extract_image_features(image)
         text_features = self.extract_text_features(input_ids, attention_mask)
-        image_features = F.normalize(image_features, p=2, dim=-1)
-        text_features = F.normalize(text_features, p=2, dim=-1)
+        image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
+        text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
         return image_features @ text_features.t() * self.t_prime.exp() + self.b
 
     def freeze_image_encoder(self):
@@ -83,11 +91,11 @@ class SigCLIP(torch.nn.Module):
     def extract_image_features(self, images):
         image_features = self.image_encoder(images)
         image_features = image_features.view(image_features.size(0), -1)
-        return self.image_projection(image_features)
+        return image_features #self.image_projection(image_features)
 
     def extract_text_features(self, input_ids, attention_mask):
         text_features = self.text_encoder(input_ids, attention_mask)
-        return self.text_projection(text_features)
+        return text_features #self.text_projection(text_features)
     
     def save(self, path):
         torch.save(self.image_encoder, os.path.join(path, "baseline_image_encoder.pth"))

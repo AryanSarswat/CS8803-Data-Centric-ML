@@ -13,21 +13,17 @@ from models.sigclip import SigCLIP, sigclip_loss
 from .test import zero_shot_classification_pipeline
 
 class Trainer:
-    def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False) -> None:
+    def __init__(self, model, optimizer, scheduler, class_names, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False, device='cpu') -> None:
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.criterion = criterion
         self.wandb_log = wandb_log
         self.project_name = project_name
         self.experiment_name = experiment_name
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = device
         self.test_script = test_script
         self.freeze_backbones = freeze_backbones
-
-        self.cifar10_class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
-        
-        self.model.to(self.device)
+        self.class_names = class_names
         
         if self.wandb_log:
             wandb.init(project=self.project_name, name=self.experiment_name)
@@ -40,18 +36,20 @@ class Trainer:
             self.model.freeze_text_encoder()
         running_loss = 0.0
         for i, data in enumerate(tqdm(dataloader, desc="Training")):
-            images, (input_ids, attention_mask) = data
+            images, input_ids = data
             input_ids = input_ids.squeeze(1)
-            attention_mask = attention_mask.squeeze(1)
 
             images = images.to(self.device, non_blocking=True)
             input_ids = input_ids.to(self.device, non_blocking=True)
-            attention_mask = attention_mask.to(self.device, non_blocking=True)
-
-            logits = self.model(images, input_ids, attention_mask)
+            output = self.model(pixel_values=images, input_ids=input_ids, return_loss=True)
+            logits = output.logits_per_image
+            loss = output.loss
+            if i % 100 == 0:
+                probs = torch.sigmoid(logits)
+                print("logits\n", probs)
+                print(probs.max(dim=-1))
             
             self.optimizer.zero_grad(set_to_none=True)
-            loss = self.criterion(logits)
             loss.backward()
             self.optimizer.step()
             l_ = loss.item()
@@ -70,16 +68,14 @@ class Trainer:
         running_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(tqdm(dataloader, desc="Validation")):
-                images, (input_ids, attention_mask) = data
+                images, input_ids = data
                 input_ids = input_ids.squeeze(1)
-                attention_mask = attention_mask.squeeze(1)
 
                 images = images.to(self.device, non_blocking=True)
                 input_ids = input_ids.to(self.device, non_blocking=True)
-                attention_mask = attention_mask.to(self.device, non_blocking=True)
-
-                logits = self.model(images, input_ids, attention_mask)
-                loss = self.criterion(logits)
+                output = self.model(pixel_values=images, input_ids=input_ids, return_loss=True)
+                logits = output.logits_per_image
+                loss = output.loss
                 running_loss += loss.item()
 
                 if self.test_script and i == 10:
@@ -92,12 +88,12 @@ class Trainer:
             train_loss = self.train_epoch(train_dataloader)
             val_loss = self.evaluate(val_dataloader)
             zero_shot_acc = zero_shot_classification_pipeline(self.model, 
-                                                              self.cifar10_class_names)
+                                                              self.class_names)
             
             if self.wandb_log:
-                wandb.log({"train_loss": train_loss, "val_loss": val_loss, 'cifar10_zero_shot': zero_shot_acc})
+                wandb.log({"train_loss": train_loss, "val_loss": val_loss, 'imagenet_zero_shot': zero_shot_acc})
             
-            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}, CIFAR10_Zero_Shot_Accuracy : {zero_shot_acc:.2f}%")
+            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}, ImageNet_Zero_Shot_Accuracy : {zero_shot_acc:.2f}%")
             self.scheduler.step(val_loss)
 
             
@@ -117,7 +113,7 @@ if __name__ == "__main__":
 
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, pin_memory=True, num_workers=8)
     val_dataloader = DataLoader(val_dataset, batch_size=128, shuffle=False, pin_memory=True, num_workers=8)
-        
+
     image_encoder = ResNet50(include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", device=device, pretrained=True)
     model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder).to(device)
@@ -127,7 +123,6 @@ if __name__ == "__main__":
     print(f"Number of trainable parameters : {params}")
     optimizer = optim.AdamW(model.parameters(), lr=1e-5)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
-    criterion = sigclip_loss
     
-    trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=True, project_name="sigclip", experiment_name="cc3m", test_script=True)
+    trainer = Trainer(model, optimizer, scheduler, wandb_log=True, project_name="sigclip", experiment_name="cc3m", test_script=True)
     trainer.train(train_dataloader, val_dataloader, epochs=2)

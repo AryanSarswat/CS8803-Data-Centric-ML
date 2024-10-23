@@ -1,7 +1,21 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from transformers import AutoProcessor
 
+
+
+def collate_fn(data, prompts, processor):
+    images, labels = zip(*data)
+    inputs = processor(text=prompts, images=images, padding="max_length", return_tensors="pt")
+    return inputs['pixel_values'], inputs['input_ids'], torch.Tensor(labels)
+
+def get_imagenet_dataloader(prompts, batch_size=4, num_workers=8):
+    test_set = torchvision.datasets.ImageNet(root='./data', split='val')
+    processor = AutoProcessor.from_pretrained("google/siglip-base-patch16-224")
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, collate_fn=lambda data: collate_fn(data, prompts, processor))
+
+    return test_loader
 
 def get_cifar10_dataloader(batch_size=4, num_workers=8):
     transform_train = transforms.Compose([
