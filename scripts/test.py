@@ -5,6 +5,7 @@ from torchvision import transforms
 from tqdm import tqdm
 
 from dataloader.cifar_dataloader import get_cifar10_dataloader, get_cifar100_dataloader
+from dataloader.imagenet_dataloader import get_imagenet_dataloader
 from models.sigclip import SigCLIP, sigclip_loss
 from models.resnet_vision_encoder import ResNet50
 from models.text_encoder import TextEncoder
@@ -31,7 +32,7 @@ def load_sigclip_model(model_path, device='cuda'):
     
     return sigclip_model
 
-def prepare_dataloader(batch_size=32, num_workers=4, split='test'):
+def prepare_dataloader(args, batch_size=32, num_workers=4, split='test'):
     """
     Prepare the DataLoader for the dataset.
 
@@ -43,7 +44,12 @@ def prepare_dataloader(batch_size=32, num_workers=4, split='test'):
     Returns:
         DataLoader: PyTorch DataLoader for the dataset.
     """
-    train_dataloader, test_dataloader = get_cifar10_dataloader(batch_size=batch_size, num_workers=num_workers)
+    dataloaders = {
+        'cifar10': get_cifar10_dataloader,
+        'imagenet': get_imagenet_dataloader
+    }
+    get_dataloader = dataloaders[args.data_name]
+    _, test_dataloader = get_dataloader(args, batch_size=batch_size, num_workers=num_workers)
 
     return test_dataloader
 
@@ -125,7 +131,7 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
     accuracy = (correct / total) * 100
     return accuracy
 
-def zero_shot_classification_pipeline(sigclip_model, class_names, batch_size=128, num_workers=16, device='cuda'):
+def zero_shot_classification_pipeline(args, sigclip_model, batch_size=128, num_workers=16, device='cuda'):
     """
     Execute the zero-shot classification pipeline.
 
@@ -141,10 +147,10 @@ def zero_shot_classification_pipeline(sigclip_model, class_names, batch_size=128
         float: Zero-shot classification accuracy.
     """
     # Prepare DataLoader
-    dataloader = prepare_dataloader(batch_size, num_workers, split='test')
+    prompts = create_class_prompts(args.class_names)
+    dataloader = prepare_dataloader(args, batch_size, num_workers, split='test')
 
     # Create and encode class prompts
-    prompts = create_class_prompts(class_names)
     text_features = encode_prompts(prompts, sigclip_model, device)
 
     # Evaluate

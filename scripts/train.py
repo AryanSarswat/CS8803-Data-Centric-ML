@@ -13,7 +13,8 @@ from models.sigclip import SigCLIP, sigclip_loss
 from .test import zero_shot_classification_pipeline
 
 class Trainer:
-    def __init__(self, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False) -> None:
+    def __init__(self, args, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False) -> None:
+        self.args = args
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -21,13 +22,9 @@ class Trainer:
         self.wandb_log = wandb_log
         self.project_name = project_name
         self.experiment_name = experiment_name
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = args.device
         self.test_script = test_script
         self.freeze_backbones = freeze_backbones
-
-        self.cifar10_class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
-        
-        self.model.to(self.device)
         
         if self.wandb_log:
             wandb.init(project=self.project_name, name=self.experiment_name)
@@ -91,13 +88,12 @@ class Trainer:
         for epoch in range(epochs):
             train_loss = self.train_epoch(train_dataloader)
             val_loss = self.evaluate(val_dataloader)
-            zero_shot_acc = zero_shot_classification_pipeline(self.model, 
-                                                              self.cifar10_class_names)
+            zero_shot_acc = zero_shot_classification_pipeline(self.args, self.model)
             
             if self.wandb_log:
-                wandb.log({"train_loss": train_loss, "val_loss": val_loss, 'cifar10_zero_shot': zero_shot_acc})
+                wandb.log({"train_loss": train_loss, "val_loss": val_loss, f'{self.args.data_name}_zero_shot': zero_shot_acc})
             
-            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}, CIFAR10_Zero_Shot_Accuracy : {zero_shot_acc:.2f}%")
+            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}, {self.args.data_name}_Zero_Shot_Accuracy : {zero_shot_acc:.2f}%")
             self.scheduler.step(val_loss)
 
             
