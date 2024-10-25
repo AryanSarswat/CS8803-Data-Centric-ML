@@ -52,6 +52,7 @@ class SigCLIP(torch.nn.Module):
             nn.Linear(proj_dim, proj_dim),
             nn.ReLU(),
             nn.Linear(proj_dim, proj_dim),
+            nn.LayerNorm(proj_dim)
         )
         
         self.text_projection = nn.Sequential(
@@ -60,6 +61,7 @@ class SigCLIP(torch.nn.Module):
             nn.Linear(proj_dim, proj_dim),
             nn.ReLU(),
             nn.Linear(proj_dim, proj_dim),
+            nn.LayerNorm(proj_dim)
         )
         
         self.t_prime = nn.Parameter(torch.ones([]) * init_tau)
@@ -68,8 +70,6 @@ class SigCLIP(torch.nn.Module):
     def forward(self, image, input_ids, attention_mask):
         image_features = self.extract_image_features(image)
         text_features = self.extract_text_features(input_ids, attention_mask)
-        image_features = F.normalize(image_features, p=2, dim=-1)
-        text_features = F.normalize(text_features, p=2, dim=-1)
         return image_features @ text_features.t() * self.t_prime.exp() + self.b
 
     def freeze_image_encoder(self):
@@ -102,9 +102,21 @@ if __name__ == "__main__":
     image_encoder = vit_50M(num_classes=1000, include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased")
 
-    model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
+    model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder, proj_dim=5)
     
-    print(model.extract_image_features(torch.randn(1, 3, 224, 224)).shape)
-    print(model.extract_text_features_from_ids(torch.randint(0, 1, (1, 512)), torch.randn(1, 512)).shape)
-    print(model.extract_text_features_from_text(["Hello, my dog is cute."]).shape)
+
+    images = torch.randn(3,3,224,224)
+    texts = ["this is a dog", "this is a cat", "this is a mouse"]
+    input_ids, attn_msk = model.text_encoder.tokenize(texts)
+    
+    image_features = model.extract_image_features(images)
+    text_features = model.extract_text_features(input_ids, attn_msk)
+
+    print(image_features)
+    print(text_features)
+
+    logits = model(images, input_ids, attn_msk)
+    print(logits)
+
+    print(sigclip_loss(logits))
 

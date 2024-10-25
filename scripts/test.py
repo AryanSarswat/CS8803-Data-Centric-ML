@@ -8,6 +8,7 @@ from dataloader.cifar_dataloader import get_cifar10_dataloader, get_cifar100_dat
 from models.sigclip import SigCLIP, sigclip_loss
 from models.resnet_vision_encoder import ResNet50
 from models.text_encoder import TextEncoder
+import clip
 
 def load_sigclip_model(model_path, device='cuda'):
     """
@@ -94,7 +95,9 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
     Returns:
         float: Classification accuracy in percentage.
     """
-    resize_transform = transforms.Resize((224, 224))
+    resize_transform = torch.nn.Sequential(
+                             transforms.Resize((224,224)),
+                             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))
 
     correct = 0
     total = 0
@@ -113,7 +116,7 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
             image_features = F.normalize(image_features, p=2, dim=-1)
 
             # Compute similarity logits
-            logits = image_features @ text_features.t() * torch.exp(sigclip_model.t_prime) + sigclip_model.b
+            logits = image_features @ text_features.t()
 
             # Predict classes
             predictions = logits.argmax(dim=1)
@@ -153,13 +156,14 @@ def zero_shot_classification_pipeline(sigclip_model, class_names, batch_size=128
     print(f'Zero-Shot Classification Accuracy: {accuracy:.2f}%')
     return accuracy
 
+
 if __name__ == "__main__":
     class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
     
     image_encoder = ResNet50(include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = SigCLIP(image_encoder, text_encoder).to(device)
+    model = SigCLIP(image_encoder, text_encoder, proj_dim=3).to(device)
 
     zero_shot_classification_pipeline(
         sigclip_model=model,

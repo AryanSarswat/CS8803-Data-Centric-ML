@@ -12,4 +12,4 @@ cd $HOME/scratch/CS8803-Data-Centric-ML/                       # Change to worki
 module load anaconda3                  # Load module dependencies
 conda init
 conda activate dml
-python3 main.py
+python3 main.py --
