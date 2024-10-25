@@ -4,11 +4,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from dataloader.cifar_dataloader import get_cifar10_dataloader, get_cifar100_dataloader
+from dataloader.cifar_dataloader import (get_cifar10_dataloader,
+                                         get_cifar100_dataloader)
+from models.resnet_vision_encoder import ResNet25
 from models.sigclip import SigCLIP, sigclip_loss
-from models.resnet_vision_encoder import ResNet50
 from models.text_encoder import TextEncoder
 import clip
+
 
 def load_sigclip_model(model_path, device='cuda'):
     """
@@ -102,9 +104,12 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
     correct = 0
     total = 0
 
+    # Du
+    text_features = text_features.repeat(images.size(0), 1)
+
     with torch.no_grad():
         for batch in tqdm(dataloader, desc="Evaluating"):
-            
+
             images = batch[0].to(device)
             labels = batch[1].to(device)
 
@@ -115,8 +120,11 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
             image_features = sigclip_model.extract_image_features(images)
             image_features = F.normalize(image_features, p=2, dim=-1)
 
+            # Duplicate text features for each image
+            text_features_ = text_features.unsqueeze(0).repeat(images.size(0), 1, 1)
+
             # Compute similarity logits
-            logits = image_features @ text_features.t()
+            logits = image_features @ text_features_.t() * torch.exp(sigclip_model.t_prime) + sigclip_model.b
 
             # Predict classes
             predictions = logits.argmax(dim=1)
@@ -158,15 +166,16 @@ def zero_shot_classification_pipeline(sigclip_model, class_names, batch_size=128
 
 
 if __name__ == "__main__":
+    model_path = './saved_models/sigclip_baseline.pth'  # Replace with your model path
     class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
     
-    image_encoder = ResNet50(include_fc=False)
+    image_encoder = ResNet25(1000, include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = SigCLIP(image_encoder, text_encoder, proj_dim=3).to(device)
 
     zero_shot_classification_pipeline(
-        sigclip_model=model,
+        model_path=model,
         class_names=class_names,
         batch_size=32,
         num_workers=4,
