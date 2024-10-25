@@ -1,5 +1,6 @@
-import os
 import argparse
+import os
+
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -11,29 +12,41 @@ from dataloader.imagenet_dataloader import get_imagenet_classes
 from models.resnet_vision_encoder import ResNet50
 from models.sigclip import SigCLIP, sigclip_loss
 from models.text_encoder import TextEncoder
-from scripts.train import Trainer
 from scripts.test import zero_shot_classification_pipeline
+from scripts.train import Trainer
 
 torch.backends.cudnn.benchmark = True
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_name', default='imagenet', type=str)
+    parser.add_argument('--train_dataset', default='imagenet', type=str, help='Dataset to train on (CC3M, CIFAR-10, ImageNet)')
+    parser.add_argument('--test_dataset', default='cifar10', type=str, help='Dataset to test on (CIFAR-10, ImageNet)')
     parser.add_argument('--data_folder', default='..', type=str)
+    parser.add_argument('--epochs', default=20, type=int)
+    parser.add_argument('--batch_size', default=128, type=int)
+    parser.add_argument('--learning_rate', default=1e-5, type=float)
+    parser.add_argument('--weight_decay', default=1e-6, type=float)
+    parser.add_argument('--num_workers', default=20, type=int)
+    parser.add_argument('--log_wandb', default=True, type=bool)
+    parser.add_argument('--project_name', default='sigclip', type=str)
+    parser.add_argument('--experiment_name', default='', type=str)
+    parser.add_argument('--save_dir', default='saved_models', type=str)
+    
     args = parser.parse_args()
     return args
 
 def baseline():
     args = parse_args()
     # Hyperparameters
-    EPOCHS = 20
-    BATCH_SIZE = 128
-    LEARNING_RATE = 1e-5
-    WEIGHT_DECAY = 1e-6
-    NUM_WORKERS = 20
-    LOG_WANDB = True
-    PROJECT_NAME = "sigclip"
-    EXPERIMENT_NAME = "baseline_pretrained_frozen"
+    EPOCHS = args.epochs
+    BATCH_SIZE = args.batch_size
+    LEARNING_RATE = args.learning_rate
+    WEIGHT_DECAY = args.weight_decay
+    NUM_WORKERS = args.num_workers
+    LOG_WANDB = args.log_wandb
+    PROJECT_NAME = args.project_name
+    EXPERIMENT_NAME = args.experiment_name
+    
     args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load the dataset
@@ -65,23 +78,22 @@ def baseline():
         'cifar10': get_cifar10_classes,
         'imagenet': get_imagenet_classes
     }
-    args.class_names = get_classes[args.data_name](args)
+    args.class_names = get_classes[args.test_dataset](args)
 
     trainer = Trainer(args, model, optimizer, criterion, scheduler, LOG_WANDB, PROJECT_NAME, EXPERIMENT_NAME, freeze_backbones=True)
     
     trainer.train(train_dataloader, val_dataloader, EPOCHS)
     
     # Save the model
-    model_dir = "saved_models"
+    model_dir = args.save_dir
     os.makedirs(model_dir, exist_ok=True)
-    model.save(model_path)
+    model.save(model_dir)
 
     # Do Zero Shot Classification
 
     zero_shot_final = zero_shot_classification_pipeline(
-        args,
         model,
-        batch_size=128,
+        batch_size=BATCH_SIZE,
         num_workers=NUM_WORKERS,
         device=args.device
     )

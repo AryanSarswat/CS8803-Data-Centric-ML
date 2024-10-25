@@ -1,9 +1,11 @@
-import os
 import json
+import os
+
 import torch
 import torchvision
 import torchvision.transforms as transforms
 from transformers import AutoProcessor
+
 
 def get_imagenet_classes(args):
     return [x[1] for x in json.load(open(os.path.join(args.data_folder, "ImageNet/imagenet_class_index.json"))).values()]

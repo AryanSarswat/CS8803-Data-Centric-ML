@@ -1,10 +1,11 @@
+import pickle
+
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn
-from transformers import DistilBertConfig, DistilBertModel, DistilBertTokenizer
-import pandas as pd
 from tqdm import tqdm
-import pickle
+from transformers import DistilBertConfig, DistilBertModel, DistilBertTokenizer
 
 if __name__ == "__main__":
     meta_data_file = "../LLaVA-CC3M-Pretrain-595K/metadata.json"

@@ -1,25 +1,25 @@
-from contextlib import contextmanager
-from itertools import chain
 import json
+import logging
 import multiprocessing
 import os
 import time
+from contextlib import contextmanager
+from itertools import chain
 from pathlib import Path
-import logging
 
 import torch
-from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
-from torch.nn.parallel import DistributedDataParallel
+import tqdm
+import wandb
 from torch import distributed as dist
 from torch.distributed.elastic.multiprocessing.errors import record
+from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
-import wandb
-import tqdm
 from dataloader.cc3m_dataloader import CC3MDataset
+from models.resnet_vision_encoder import ResNet25
 from models.sigclip import SigCLIP, sigclip_loss
 from models.text_encoder import TextEncoder
-from models.resnet_vision_encoder import ResNet25
 
 torch.backends.cudnn.benchmark = True
 LOGGER = logging.getLogger(__name__)

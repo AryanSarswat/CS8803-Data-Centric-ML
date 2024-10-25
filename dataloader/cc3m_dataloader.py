@@ -1,4 +1,5 @@
 import os
+import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
-import pickle
+
 
 class CC3MDataset(Dataset):
     def __init__(self, pickle_file, root_dir, transform=None):

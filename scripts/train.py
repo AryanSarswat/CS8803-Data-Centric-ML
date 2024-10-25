@@ -1,16 +1,17 @@
 import torch
 import torch.optim as optim
 import wandb
-from models.resnet_vision_encoder import ResNet50
-from models.text_encoder import TextEncoder
 from torch.utils.data import DataLoader
 from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from dataloader.cc3m_dataloader import CC3MDataset
+from models.resnet_vision_encoder import ResNet50
 from models.sigclip import SigCLIP, sigclip_loss
+from models.text_encoder import TextEncoder
 
 from .test import zero_shot_classification_pipeline
+
 
 class Trainer:
     def __init__(self, args, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False) -> None:

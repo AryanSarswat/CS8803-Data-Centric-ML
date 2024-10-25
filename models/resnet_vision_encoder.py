@@ -1,7 +1,11 @@
 import torch
-from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152, ResNet18_Weights, ResNet34_Weights, ResNet50_Weights, ResNet101_Weights, ResNet152_Weights
 from torchsummary import summary
-        
+from torchvision.models import (ResNet18_Weights, ResNet34_Weights,
+                                ResNet50_Weights, ResNet101_Weights,
+                                ResNet152_Weights, resnet18, resnet34,
+                                resnet50, resnet101, resnet152)
+
+
 def ResNet18(num_classes, pretrained=True, include_fc=True):
     model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
     
