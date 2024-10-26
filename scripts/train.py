@@ -12,10 +12,21 @@ from models.text_encoder import TextEncoder
 
 from .test import zero_shot_classification_pipeline
 
-
 class Trainer:
-    def __init__(self, args, model, optimizer, criterion, scheduler, wandb_log=False, project_name="", experiment_name="", test_script=False, freeze_backbones=False) -> None:
-        self.args = args
+    def __init__(self, 
+                 model, 
+                 optimizer, 
+                 criterion, 
+                 scheduler, 
+                 device, 
+                 wandb_log=False, 
+                 project_name="", 
+                 experiment_name="", 
+                 test_script=False, 
+                 freeze_backbones=False, 
+                 zero_shot_dataset='cifar10', 
+                 zero_shot_class_names=None) -> None:
+
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -23,14 +34,25 @@ class Trainer:
         self.wandb_log = wandb_log
         self.project_name = project_name
         self.experiment_name = experiment_name
-        self.device = args.device
+        self.device = device
         self.test_script = test_script
         self.freeze_backbones = freeze_backbones
+        self.zero_shot_dataset = zero_shot_dataset
+        self.zero_shot_class_names = zero_shot_class_names
         
         if self.wandb_log:
             wandb.init(project=self.project_name, name=self.experiment_name)
 
     def train_epoch(self, dataloader):
+        """
+        Trains the model for one epoch.
+
+        Args:
+            dataloader (DataLoader): DataLoader providing training data.
+
+        Returns:
+            float: Average loss for the epoch.
+        """
         self.model.train()
         
         if self.freeze_backbones:
@@ -64,6 +86,15 @@ class Trainer:
         return running_loss / len(dataloader)
     
     def evaluate(self, dataloader):
+        """
+        Evaluates the model on a validation dataset.
+
+        Args:
+            dataloader (DataLoader): DataLoader providing validation data.
+
+        Returns:
+            float: Average loss over the validation dataset.
+        """
         self.model.eval()
         running_loss = 0.0
         with torch.no_grad():
@@ -86,15 +117,29 @@ class Trainer:
         return running_loss / len(dataloader)
     
     def train(self, train_dataloader, val_dataloader, epochs):
+        """
+        Trains the model over multiple epochs, evaluates on validation data, 
+        and optionally performs zero-shot classification.
+
+        Args:
+            train_dataloader (DataLoader): DataLoader providing training data.
+            val_dataloader (DataLoader): DataLoader providing validation data.
+            epochs (int): Number of epochs to train the model.
+
+        Returns:
+            None
+        """
         for epoch in range(epochs):
             train_loss = self.train_epoch(train_dataloader)
             val_loss = self.evaluate(val_dataloader)
-            zero_shot_acc = zero_shot_classification_pipeline(self.args, self.model)
+
+            if self.zero_shot_class_names is not None:
+                zero_shot_acc = zero_shot_classification_pipeline(self.model, self.zero_shot_class_names)
             
             if self.wandb_log:
-                wandb.log({"train_loss": train_loss, "val_loss": val_loss, f'{self.args.data_name}_zero_shot': zero_shot_acc})
+                wandb.log({"train_loss": train_loss, "val_loss": val_loss, f'{self.zero_shot_dataset}_zero_shot': zero_shot_acc})
             
-            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}, {self.args.data_name}_Zero_Shot_Accuracy : {zero_shot_acc:.2f}%")
+            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss}, Val Loss: {val_loss}, {self.zero_shot_dataset}_Zero_Shot_Accuracy : {zero_shot_acc:.2f}%")
             self.scheduler.step(val_loss)
 
             
@@ -107,6 +152,11 @@ if __name__ == "__main__":
     )
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    args = {
+        'device' : device,
+        'class_names' : ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
+    }
 
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
@@ -126,5 +176,16 @@ if __name__ == "__main__":
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     criterion = sigclip_loss
     
-    trainer = Trainer(model, optimizer, criterion, scheduler, wandb_log=True, project_name="sigclip", experiment_name="cc3m", test_script=True)
+    trainer = Trainer(model=model, 
+                      optimizer=optimizer, 
+                      criterion=criterion, 
+                      scheduler=scheduler,
+                      device=args['device'],
+                      wandb_log=False, 
+                      project_name="sigclip", 
+                      experiment_name="cc3m", 
+                      test_script=True,
+                      zero_shot_dataset='cifar10',
+                      zero_shot_class_names=args['class_names'])
+
     trainer.train(train_dataloader, val_dataloader, epochs=2)

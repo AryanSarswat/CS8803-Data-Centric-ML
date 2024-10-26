@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from dataloader.cifar_dataloader import (get_cifar10_dataloader,
                                          get_cifar100_dataloader)
-from models.resnet_vision_encoder import ResNet25
+from models.resnet_vision_encoder import ResNet50
 from models.sigclip import SigCLIP, sigclip_loss
 from models.text_encoder import TextEncoder
 import clip
@@ -14,88 +14,90 @@ import clip
 
 def load_sigclip_model(model_path, device='cuda'):
     """
-    Load the trained SigCLIP model.
+    Loads the trained SigCLIP model with specified weights.
 
     Args:
-        model_path (str): Path to the trained SigCLIP weights.
-        device (str): Device to load the model on.
+        model_path (str): Path to the saved SigCLIP model weights.
+        device (str): Device on which to load the model ('cuda' for GPU or 'cpu').
 
     Returns:
-        SigCLIP: Loaded SigCLIP model.
+        SigCLIP: Loaded SigCLIP model set to evaluation mode.
     """
-    image_encoder = ResNet25(1000, include_fc=False)
+    image_encoder = ResNet50(include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
 
     # Initialize SigCLIP
-    sigclip_model = SigCLIP(image_encoder, text_encoder)
-    sigclip_model.load(model_path)
-    sigclip_model.to(device)
-    sigclip_model.eval()
+    model = SigCLIP(image_encoder, text_encoder)
+    model.load(model_path)
+    model.to(device)
+    model.eval()
     
     return sigclip_model
 
-def prepare_dataloader(batch_size=32, num_workers=4, split='test'):
+def prepare_dataloader(data_folder, batch_size=32, num_workers=4, split='test'):
     """
-    Prepare the DataLoader for the dataset.
+    Prepares a DataLoader for the dataset with specified split.
 
     Args:
-        batch_size (int): Number of samples per batch.
-        num_workers (int): Number of subprocesses for data loading.
-        split (str): Dataset split to use ('train', 'val', 'test').
+        data_folder (str): Path to the dataset folder.
+        batch_size (int): Number of samples per batch in DataLoader.
+        num_workers (int): Number of subprocesses to use for data loading.
+        split (str): Specifies dataset split to load ('train', 'val', 'test').
 
     Returns:
-        DataLoader: PyTorch DataLoader for the dataset.
+        DataLoader: PyTorch DataLoader object for the specified dataset split.
     """
-    train_dataloader, test_dataloader = get_cifar10_dataloader(batch_size=batch_size, num_workers=num_workers)
-
+    train_dataloader, test_dataloader = get_cifar10_dataloader(data_folder=data_folder, 
+                                                               batch_size=batch_size, 
+                                                               num_workers=num_workers)
+    
     return test_dataloader
 
 def create_class_prompts(class_names):
     """
-    Create textual prompts for each class.
+    Generates text prompts for each class name, formatted for CLIP-style encoding.
 
     Args:
-        class_names (list): List of class names.
+        class_names (list of str): List of class names in the dataset.
 
     Returns:
-        list: List of formatted prompts.
+        list of str: List of textual prompts for each class.
     """
     return [f"A photo of a {class_name}." for class_name in class_names]
 
-def encode_prompts(prompts, sigclip_model, device='cuda'):
+def encode_prompts(prompts, model, device='cuda'):
     """
-    Encode class prompts into text embeddings.
+    Encodes class prompts into text embeddings using the SigCLIP model.
 
     Args:
-        prompts (list): List of class prompts.
-        sigclip_model (SigCLIP): Trained SigCLIP model.
-        tokenizer: Tokenizer compatible with the text encoder.
-        device (str): Device for computation.
+        prompts (list of str): List of text prompts to be encoded.
+        model (nn.Module): Loaded CLIP style model for encoding.
+        device (str): Device for running computations ('cuda' for GPU or 'cpu').
 
     Returns:
-        torch.Tensor: Normalized text feature embeddings.
+        torch.Tensor: Normalized text embeddings for each prompt.
     """
-    encoded = sigclip_model.text_encoder.tokenizer(prompts, padding=True, return_tensors='pt').to(device)
+    encoded = model.text_encoder.tokenizer(prompts, padding=True, return_tensors='pt').to(device)
     with torch.no_grad():
-        text_features = sigclip_model.extract_text_features(
+        text_features = model.extract_text_features(
             encoded['input_ids'],
             encoded['attention_mask']
         )
         text_features = F.normalize(text_features, p=2, dim=-1)
     return text_features
 
-def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
+def evaluate_zero_shot(model, dataloader, text_features, device='cuda'):
     """
-    Evaluate zero-shot classification accuracy.
+    Evaluates zero-shot classification accuracy on an image dataset.
 
     Args:
-        sigclip_model (SigCLIP): Trained SigCLIP model.
-        dataloader (DataLoader): DataLoader for the evaluation dataset.
-        text_features (torch.Tensor): Encoded text feature embeddings.
-        device (str): Device for computation.
+        model (nn.Module): Loaded SigCLIP model for zero-shot evaluation.
+        dataloader (DataLoader): DataLoader for evaluation dataset.
+        text_features (torch.Tensor): Encoded text embeddings for each class.
+        device (str): Device for computation ('cuda' or 'cpu').
 
     Returns:
-        float: Classification accuracy in percentage.
+        float: Zero-shot classification accuracy as a percentage.
     """
     resize_transform = torch.nn.Sequential(
                              transforms.Resize((224,224)),
@@ -103,9 +105,6 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
 
     correct = 0
     total = 0
-
-    # Du
-    text_features = text_features.repeat(images.size(0), 1)
 
     with torch.no_grad():
         for batch in tqdm(dataloader, desc="Evaluating"):
@@ -117,14 +116,11 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
             images = resize_transform(images)
 
             # Encode images
-            image_features = sigclip_model.extract_image_features(images)
+            image_features = model.extract_image_features(images)
             image_features = F.normalize(image_features, p=2, dim=-1)
 
-            # Duplicate text features for each image
-            text_features_ = text_features.unsqueeze(0).repeat(images.size(0), 1, 1)
-
             # Compute similarity logits
-            logits = image_features @ text_features_.t() * torch.exp(sigclip_model.t_prime) + sigclip_model.b
+            logits = image_features @ text_features.t()
 
             # Predict classes
             predictions = logits.argmax(dim=1)
@@ -136,30 +132,30 @@ def evaluate_zero_shot(sigclip_model, dataloader, text_features, device='cuda'):
     accuracy = (correct / total) * 100
     return accuracy
 
-def zero_shot_classification_pipeline(sigclip_model, class_names, batch_size=128, num_workers=16, device='cuda'):
+def zero_shot_classification_pipeline(model, class_names, data_folder='./data', batch_size=128, num_workers=16, device='cuda'):
     """
-    Execute the zero-shot classification pipeline.
+    Executes the zero-shot classification pipeline from data loading to evaluation.
 
     Args:
-        model_path (str): Path to the trained SigCLIP model.
-        dataset_path (str): Path to the evaluation dataset.
-        class_names (list): List of class names for classification.
-        batch_size (int, optional): Batch size for DataLoader. Defaults to 32.
-        num_workers (int, optional): Number of DataLoader workers. Defaults to 4.
-        device (str, optional): Computation device. Defaults to 'cuda'.
+        model (nn.Module): Pre-trained CLIP style model for zero-shot classification.
+        class_names (list of str): List of class names for classification.
+        data_folder (str): Path to dataset folder.
+        batch_size (int, optional): Batch size for DataLoader. Defaults to 128.
+        num_workers (int, optional): Number of workers for data loading. Defaults to 16.
+        device (str, optional): Device for computations ('cuda' or 'cpu'). Defaults to 'cuda'.
 
     Returns:
-        float: Zero-shot classification accuracy.
+        float: Zero-shot classification accuracy as a percentage.
     """
     # Prepare DataLoader
-    dataloader = prepare_dataloader(batch_size, num_workers, split='test')
+    dataloader = prepare_dataloader(data_folder, batch_size, num_workers, split='test')
 
     # Create and encode class prompts
     prompts = create_class_prompts(class_names)
-    text_features = encode_prompts(prompts, sigclip_model, device)
+    text_features = encode_prompts(prompts, model, device)
 
     # Evaluate
-    accuracy = evaluate_zero_shot(sigclip_model, dataloader, text_features, device)
+    accuracy = evaluate_zero_shot(model, dataloader, text_features, device)
     
     print(f'Zero-Shot Classification Accuracy: {accuracy:.2f}%')
     return accuracy
@@ -169,13 +165,13 @@ if __name__ == "__main__":
     model_path = './saved_models/sigclip_baseline.pth'  # Replace with your model path
     class_names = ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
     
-    image_encoder = ResNet25(1000, include_fc=False)
+    image_encoder = ResNet50(include_fc=False)
     text_encoder = TextEncoder(model_name="distilbert-base-uncased", pretrained=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = SigCLIP(image_encoder, text_encoder, proj_dim=3).to(device)
 
     zero_shot_classification_pipeline(
-        model_path=model,
+        model=model,
         class_names=class_names,
         batch_size=32,
         num_workers=4,

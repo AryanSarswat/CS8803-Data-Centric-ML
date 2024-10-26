@@ -20,7 +20,6 @@ torch.backends.cudnn.benchmark = True
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train_dataset', default='imagenet', type=str, help='Dataset to train on (CC3M, CIFAR-10, ImageNet)')
     parser.add_argument('--test_dataset', default='cifar10', type=str, help='Dataset to test on (CIFAR-10, ImageNet)')
     parser.add_argument('--data_folder', default='..', type=str)
     parser.add_argument('--epochs', default=20, type=int)
@@ -28,7 +27,7 @@ def parse_args():
     parser.add_argument('--learning_rate', default=1e-5, type=float)
     parser.add_argument('--weight_decay', default=1e-6, type=float)
     parser.add_argument('--num_workers', default=20, type=int)
-    parser.add_argument('--log_wandb', default=True, type=bool)
+    parser.add_argument('--log_wandb', default=False, type=bool)
     parser.add_argument('--project_name', default='sigclip', type=str)
     parser.add_argument('--experiment_name', default='', type=str)
     parser.add_argument('--save_dir', default='saved_models', type=str)
@@ -51,14 +50,13 @@ def baseline():
     args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load the dataset
-    
     tfs = torch.nn.Sequential(
                              transforms.Resize((224,224)),
                              transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))
 
     dataset = CC3MDataset(
-        pickle_file=os.path.join(args.data_folder, 'LLaVA-CC3M-Pretrain-595K/preprocessed_image_text_pairs.pkl'),
-        root_dir=os.path.join(args.data_folder, 'LLaVA-CC3M-Pretrain-595K/images'),
+        pickle_file=os.path.join(args.data_folder, 'preprocessed_image_text_pairs.pkl'),
+        root_dir=os.path.join(args.data_folder, 'images'),
         transform=None
     )
 

@@ -6,7 +6,7 @@ import torchvision.transforms as transforms
 def get_cifar10_classes(args):
     return ['airplanes', 'cars', 'birds', 'cats', 'deer', 'dogs', 'frogs', 'horses', 'ships', 'trucks']
 
-def get_cifar10_dataloader(args, batch_size=4, num_workers=8):
+def get_cifar10_dataloader(data_folder, batch_size=4, num_workers=8):
     transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomRotation(20),
@@ -20,16 +20,15 @@ def get_cifar10_dataloader(args, batch_size=4, num_workers=8):
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
          ])
 
-    train_set = torchvision.datasets.CIFAR10(root=args.data_folder, train=True, download=True, transform=transform_train)
+    train_set = torchvision.datasets.CIFAR10(root=data_folder, train=True, download=True, transform=transform_train)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
 
-    test_set = torchvision.datasets.CIFAR10(root=args.data_folder, train=False, download=True, transform=transform_test)
-    
+    test_set = torchvision.datasets.CIFAR10(root=data_folder, train=False, download=True, transform=transform_test)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
 
     return train_loader, test_loader
 
-def get_cifar100_dataloader(batch_size=4, num_workers=2):
+def get_cifar100_dataloader(data_folder, batch_size=4, num_workers=2):
     transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomRotation(10),
@@ -43,15 +42,15 @@ def get_cifar100_dataloader(batch_size=4, num_workers=2):
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
          ])
 
-    train_set = torchvision.datasets.CIFAR100(root=args.data_folder, train=True, download=True, transform=transform_train)
+    train_set = torchvision.datasets.CIFAR100(root=data_folder, train=True, download=True, transform=transform_train)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
 
-    test_set = torchvision.datasets.CIFAR100(root=args.data_folder, train=False, download=True, transform=transform_test)
+    test_set = torchvision.datasets.CIFAR100(root=data_folder, train=False, download=True, transform=transform_test)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
 
     return train_loader, test_loader
 
-def get_SHVN_dataloader(batch_size=4, num_workers=4):
+def get_SHVN_dataloader(data_folder, batch_size=4, num_workers=4):
     transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomRotation(20),
@@ -65,11 +64,10 @@ def get_SHVN_dataloader(batch_size=4, num_workers=4):
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
          ])
 
-    train_set = torchvision.datasets.SVHN(root=args.data_folder, split="train", download=True, transform=transform_train)
+    train_set = torchvision.datasets.SVHN(root=data_folder, split="train", download=True, transform=transform_train)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
 
-    test_set = torchvision.datasets.SVHN(root=args.data_folder, split="test", download=True, transform=transform_test)
-    
+    test_set = torchvision.datasets.SVHN(root=data_folder, split="test", download=True, transform=transform_test)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
 
     return train_loader, test_loader
