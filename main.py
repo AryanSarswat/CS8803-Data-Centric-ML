@@ -83,9 +83,20 @@ def baseline():
         'cifar10': get_cifar10_classes,
         'imagenet': get_imagenet_classes
     }
+
     args.class_names = get_classes[args.test_dataset](args)
 
-    trainer = Trainer(args, model, optimizer, criterion, scheduler, LOG_WANDB, PROJECT_NAME, EXPERIMENT_NAME, freeze_backbones=True)
+    trainer = Trainer(model=model, 
+                      optimizer=optimizer, 
+                      criterion=criterion, 
+                      scheduler=scheduler,
+                      device=args.device,
+                      wandb_log=LOG_WANDB, 
+                      project_name=PROJECT_NAME, 
+                      experiment_name=EXPERIMENT_NAME, 
+                      test_script=False,
+                      zero_shot_dataset=args.test_dataset,
+                      zero_shot_class_names=args.class_names)
     
     trainer.train(train_dataloader, val_dataloader, EPOCHS)
     
@@ -97,7 +108,8 @@ def baseline():
     # Do Zero Shot Classification
 
     zero_shot_final = zero_shot_classification_pipeline(
-        model,
+        model=model,
+        class_names=args.class_names,
         batch_size=BATCH_SIZE,
         num_workers=NUM_WORKERS,
         device=args.device

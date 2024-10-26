@@ -12,4 +12,4 @@ cd $HOME/scratch/CS8803-Data-Centric-ML/                       # Change to worki
 module load anaconda3                  # Load module dependencies
 conda init
 conda activate dml
-python3 main.py
+python3 main.py --data_folder ../LLaVA-CC3M-Pretrain-595K/ --test_dataset cifar10 --epochs 20 --batch_size 1024 --learning_rate 1e-5 --weight_decay 1e-6 --num_workers 20 --log_wandb True --project_name sigclip --experiment_name baseline_a100 --save_dir saved_models

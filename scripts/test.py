@@ -175,5 +175,5 @@ if __name__ == "__main__":
         class_names=class_names,
         batch_size=32,
         num_workers=4,
-        device='cuda'
+        device=device
     )

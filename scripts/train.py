@@ -134,7 +134,7 @@ class Trainer:
             val_loss = self.evaluate(val_dataloader)
 
             if self.zero_shot_class_names is not None:
-                zero_shot_acc = zero_shot_classification_pipeline(self.model, self.zero_shot_class_names)
+                zero_shot_acc = zero_shot_classification_pipeline(self.model, self.zero_shot_class_names, device=self.device)
             
             if self.wandb_log:
                 wandb.log({"train_loss": train_loss, "val_loss": val_loss, f'{self.zero_shot_dataset}_zero_shot': zero_shot_acc})
