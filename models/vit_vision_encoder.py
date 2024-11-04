@@ -228,5 +228,6 @@ def vit_200M(num_classes, include_fc=True):
     return model
 
 if __name__ == "__main__":
-    model = vit_1M(num_classes=1000)
-    summary(model, (3, 224, 224), depth=4)
+    device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+    model = vit_50M(num_classes=80).to(device)
+    summary(model, (3, 224, 224))

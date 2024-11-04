@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.pth
 *.out
+*.pickle
 
 # C extensions
 *.so

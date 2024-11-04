@@ -120,7 +120,7 @@ def evaluate_zero_shot(model, dataloader, text_features, device='cuda'):
             image_features = F.normalize(image_features, p=2, dim=-1)
 
             # Compute similarity logits
-            logits = image_features @ text_features.t()
+            logits = image_features @ text_features.t() + model.b
 
             # Predict classes
             predictions = logits.argmax(dim=1)

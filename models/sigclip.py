@@ -72,7 +72,7 @@ class SigCLIP(torch.nn.Module):
     def forward(self, image, input_ids, attention_mask):
         image_features = self.extract_image_features(image)
         text_features = self.extract_text_features(input_ids, attention_mask)
-        return image_features @ text_features.t()
+        return image_features @ text_features.t() + self.b
 
     def freeze_image_encoder(self):
         for param in self.image_encoder.parameters():
