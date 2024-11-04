@@ -156,6 +156,8 @@ class Trainer:
                     "top1_accuracy": top1_acc,
                     "top5_accuracy": top5_acc
                 }
+
+                wandb.log(metrics)
             
             print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Top-1 Acc: {top1_acc:.2f}%, Top-5 Acc: {top5_acc:.2f}%")
             
