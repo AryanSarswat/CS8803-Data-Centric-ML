@@ -9,8 +9,8 @@ from torchvision.transforms import ToTensor
 
 from dataloader.coco_dataloader import get_coco_dataloader
 from dataloader.cifar_dataloader import get_cifar10_classes
-from models.resnet_vision_encoder import ResNet50
-from models.vit_vision_encoder import vit_50M
+from models.resnet_vision_encoder import ResNet152
+from models.vit_vision_encoder import vit_50M, vit_base
 from scripts.train import Trainer
 
 torch.backends.cudnn.benchmark = True
@@ -50,14 +50,14 @@ def baseline():
     train_dataloader, val_dataloader = get_coco_dataloader(args)
     
     # Load the model
-    model = vit_50M(num_classes=80).to(args.device)
+    model = vit_base(num_classes=80).to(args.device)
 
     num_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total Number of trainable paramters : {num_parameters}")
     
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     criterion = torch.nn.CrossEntropyLoss()
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3, verbose=True)
 
     trainer = Trainer(
                     model=model,

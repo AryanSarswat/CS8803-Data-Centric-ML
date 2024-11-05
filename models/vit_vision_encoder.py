@@ -7,6 +7,7 @@ from einops.layers.torch import Rearrange
 from packaging import version
 from torch import nn
 from torchsummary import summary
+import torchvision
 
 # constants
 
@@ -227,7 +228,19 @@ def vit_200M(num_classes, include_fc=True):
     
     return model
 
+def vit_base(num_classes, include_fc=False, pretrained=True):
+    model = torchvision.models.vit_b_16(weights='IMAGENET1K_V1')
+
+    if not include_fc:
+        model.heads = nn.Sequential(
+            nn.Linear(768, num_classes)
+        )
+
+    return model
+
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-    model = vit_50M(num_classes=80).to(device)
-    summary(model, (3, 224, 224))
+    model = vit_base(num_classes=80).to(device)
+    test_in = torch.randn(5,3,224,224).to(device)
+    print(f"Output shape : {model(test_in).shape}")
+    #summary(model, (1, 3, 224, 224))

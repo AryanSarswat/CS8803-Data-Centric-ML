@@ -12,5 +12,5 @@ cd $HOME/scratch/CS8803-Data-Centric-ML/                       # Change to worki
 module load anaconda3                  # Load module dependencies
 conda init
 conda activate dml
-python3 main.py --image_data_folder ../coco/images --pickle_folder ./ --epochs 20 --batch_size 256 --learning_rate 1e-5 --weight_decay 1e-6 --num_workers 20 --log_wandb True --project_name svp --experiment_name baseline_rtx --save_dir saved_models
+python3 main.py --image_data_folder ../coco/images --pickle_folder ./ --epochs 100 --batch_size 128 --learning_rate 1e-5 --weight_decay 1e-5 --num_workers 20 --log_wandb True --project_name svp --experiment_name p_vit_baseline_rtx_0.00001 --save_dir saved_models
 
