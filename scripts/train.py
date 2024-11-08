@@ -6,6 +6,7 @@ from torchvision.transforms import ToTensor
 from torchvision import datasets, transforms
 from tqdm import tqdm
 import argparse
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 
 from dataloader.coco_dataloader import get_coco_dataloader
 from models.vit_vision_encoder import vit_50M
@@ -102,7 +103,8 @@ class Trainer:
         running_loss = 0.0
         correct = 0
         total = 0
-        
+        all_preds = []
+        all_labels = []
         with torch.no_grad():
             for i, data in enumerate(tqdm(dataloader, desc="Validating")):
                 images, labels = data
@@ -113,18 +115,22 @@ class Trainer:
                 loss = self.criterion(logits, labels)
                 running_loss += loss.item()
 
-                preds = (logits > thres).int()
-                positive_labels_mask = labels == 1
-                correct += (preds[positive_labels_mask] == 1).sum().item()
-                total += positive_labels_mask.sum().item()
+                preds = (logits > thres).int().flatten()
+                labels = labels.flatten()
+                all_preds.append(preds)
+                all_labels.append(labels)
 
                 if self.test_script and i == 10:
                     break
-
+        all_preds = torch.cat(all_preds).cpu()
+        all_labels = torch.cat(all_labels).cpu()
         avg_loss = running_loss / len(dataloader)
-        accuracy = (correct / total) * 100
+        accuracy = accuracy_score(all_labels, all_preds)
+        recall = recall_score(all_labels, all_preds)
+        precision = precision_score(all_labels, all_preds)
+        f1 = f1_score(all_labels, all_preds)
 
-        return avg_loss, accuracy
+        return avg_loss, accuracy, recall, precision, f1
     
     def train(self, train_dataloader, val_dataloader, epochs):
         """
@@ -140,18 +146,21 @@ class Trainer:
         """
         for epoch in range(epochs):
             train_loss = self.train_epoch(train_dataloader)
-            val_loss, accuracy = self.evaluate(val_dataloader)
+            val_loss, accuracy, recall, precision, f1 = self.evaluate(val_dataloader)
 
             if self.wandb_log:
                 metrics = {
                     "train_loss": train_loss,
                     "val_loss": val_loss,
-                    "accuracy": accuracy
+                    "accuracy": accuracy,
+                    "recall": recall,
+                    "precision": precision,
+                    "f1": f1
                 }
 
                 wandb.log(metrics)
             
-            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Accuracy: {accuracy:.2f}%")
+            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Accuracy: {accuracy:.2f}%, Recall: {recall:.2f}%, Precision: {precision:.2f}%, F1: {f1:.2f}%")
             
             self.scheduler.step(val_loss)
 
