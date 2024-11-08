@@ -96,13 +96,11 @@ class Trainer:
 
         Returns:
             float: Average loss over the validation dataset.
-            float: Top-1 accuracy.
-            float: Top-5 accuracy.
+            float: Accuracy.
         """
         self.model.eval()
         running_loss = 0.0
-        correct_top1 = 0
-        correct_top5 = 0
+        correct = 0
         total = 0
         
         with torch.no_grad():
@@ -115,23 +113,18 @@ class Trainer:
                 loss = self.criterion(logits, labels)
                 running_loss += loss.item()
 
-                _, preds = torch.max(logits, 1)
-                correct_top1 += (preds == labels).sum().item()
-
-                # Top-5 accuracy
-                _, top5_preds = logits.topk(5, dim=1)
-                correct_top5 += sum([labels[i] in top5_preds[i] for i in range(labels.size(0))])
-
-                total += labels.size(0)
+                preds = (logits > 0.5).int()
+                correct += (preds == labels).sum().item()
+                num_samples, num_classes = labels.shape
+                total += num_samples*num_classes
 
                 if self.test_script and i == 10:
                     break
 
         avg_loss = running_loss / len(dataloader)
-        top1_acc = (correct_top1 / total) * 100
-        top5_acc = (correct_top5 / total) * 100
+        accuracy = (correct / total) * 100
 
-        return avg_loss, top1_acc, top5_acc
+        return avg_loss, accuracy
     
     def train(self, train_dataloader, val_dataloader, epochs):
         """
@@ -147,19 +140,18 @@ class Trainer:
         """
         for epoch in range(epochs):
             train_loss = self.train_epoch(train_dataloader)
-            val_loss, top1_acc, top5_acc = self.evaluate(val_dataloader)
+            val_loss, accuracy = self.evaluate(val_dataloader)
 
             if self.wandb_log:
                 metrics = {
                     "train_loss": train_loss,
                     "val_loss": val_loss,
-                    "top1_accuracy": top1_acc,
-                    "top5_accuracy": top5_acc
+                    "accuracy": accuracy
                 }
 
                 wandb.log(metrics)
             
-            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Top-1 Acc: {top1_acc:.2f}%, Top-5 Acc: {top5_acc:.2f}%")
+            print(f"Epoch: {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Accuracy: {accuracy:.2f}%")
             
             self.scheduler.step(val_loss)
 

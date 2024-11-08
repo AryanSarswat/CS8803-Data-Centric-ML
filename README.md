@@ -26,4 +26,9 @@ Instructions from : https://gist.github.com/mkocabas/a6177fc00315403d31572e17700
 Then run dataloader.preprocess to get the pickle files
 
 # Run
-`python main.py --image_data_folder $DATA_FOLDER --pickle_folder $PICKLE_DATA_FOLDER`
+```
+cd dataloader
+python preprocess.py --coco_data_folder $COCO_DATA_FOLDER --pickle_folder $PICKLE_DATA_FOLDER
+cd ..
+python main.py --image_data_folder $DATA_FOLDER --pickle_folder $PICKLE_DATA_FOLDER
+```

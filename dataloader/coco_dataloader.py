@@ -20,6 +20,7 @@ class CocoDataset(Dataset):
         with open(category_mapping_path, 'rb') as f:
             self.category_to_idx = pickle.load(f)
         
+        self.num_classes = len(self.category_to_idx)
         self.images_dir = images_dir
         self.transform = transform
 
@@ -30,15 +31,18 @@ class CocoDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
         
-        file_name, label = self.image_info[idx]
+        file_name, labels = self.image_info[idx]
         img_path = os.path.join(self.images_dir, file_name)
         image = Image.open(img_path).convert('RGB')
         
         if self.transform:
             image = self.transform(image)
         
-        label_idx = self.category_to_idx[label]
-        return image, label_idx
+        one_hot = torch.zeros(self.num_classes)
+        for label in labels:
+            idx = self.category_to_idx[label]
+            one_hot[idx] = 1
+        return image, one_hot
 
 def get_coco_dataloader(args):
     train_pickle = os.path.join(args.pickle_folder, 'processed_coco_train.pickle')
