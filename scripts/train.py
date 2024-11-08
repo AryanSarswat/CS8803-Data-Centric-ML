@@ -87,7 +87,7 @@ class Trainer:
 
         return running_loss / len(dataloader)
     
-    def evaluate(self, dataloader):
+    def evaluate(self, dataloader, thres=0.5):
         """
         Evaluates the model on the validation dataset.
 
@@ -113,10 +113,10 @@ class Trainer:
                 loss = self.criterion(logits, labels)
                 running_loss += loss.item()
 
-                preds = (logits > 0.5).int()
-                correct += (preds == labels).sum().item()
-                num_samples, num_classes = labels.shape
-                total += num_samples*num_classes
+                preds = (logits > thres).int()
+                positive_labels_mask = labels == 1
+                correct += (preds[positive_labels_mask] == 1).sum().item()
+                total += positive_labels_mask.sum().item()
 
                 if self.test_script and i == 10:
                     break
