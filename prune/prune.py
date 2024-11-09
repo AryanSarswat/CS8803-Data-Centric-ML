@@ -30,20 +30,6 @@ def count_parameters(model):
     print(f"Total number of non-zero parameters : {non_zero_params}")
     return total_params, non_zero_params
 
-def check_sparsity(model):
-    """
-    Prints the sparsity of each pruned layer in the model.
-
-    Args:
-        model (nn.Module): The pruned PyTorch model.
-    """
-    for name, module in model.named_modules():
-        if isinstance(module, (nn.Conv2d, nn.Linear)):
-            if hasattr(module, 'weight_mask'):
-                mask = module.weight_mask
-                sparsity = 100. * float(mask.nelement() - mask.sum()) / mask.nelement()
-                print(f"Sparsity in {name}: {sparsity:.2f}%")
-
 def measure_inference_speed(model, input_size=(1, 3, 224, 224), device='cpu', runs=100):
     """
     Measures the average inference time of the model.
