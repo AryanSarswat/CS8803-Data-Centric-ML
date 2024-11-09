@@ -93,13 +93,13 @@ class Preprocess:
         self.labels = {'train':[], 'val':[]}
         train_image_info = self.get_image_info('train')
         val_image_info = self.get_image_info('val')
-        all_labels = self.labels['train']+self.labels['val']
+        all_labels = self.labels['train'] + self.labels['val']
         category_ids = sorted(set(all_labels))
         category_to_idx = {cat_id: idx for idx, cat_id in enumerate(category_ids)}
 
         print(f"Length of Train : {len(train_image_info)}")
         print(f"Length of Val : {len(val_image_info)}")
-        print(f"Number of Categories : {len(category_ids)}")
+        print(f"Number of Categories : {len(category_to_idx)}")
 
         for idx in range(3):
             print(train_image_info[idx])

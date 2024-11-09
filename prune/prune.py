@@ -4,10 +4,9 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 import torch.nn.utils.prune as prune
+import torch_pruning as tp
 
-from models.sigclip import SigCLIP
-from models.text_encoder import TextEncoder
-from models.vit_vision_encoder import vit_50M
+from models.vit_vision_encoder import vit_base
 
 
 def count_parameters(model):
@@ -26,6 +25,9 @@ def count_parameters(model):
     for param in model.parameters():
         total_params += param.numel()
         non_zero_params += param.nonzero().size(0)
+
+    print(f"Total number of parameters : {total_params}")
+    print(f"Total number of non-zero parameters : {non_zero_params}")
     return total_params, non_zero_params
 
 def check_sparsity(model):
@@ -124,7 +126,7 @@ def unstructured_prune_model(model, prune_ratio):
     
     return model
 
-def apply_global_structured_pruning(model, pruning_amount=0.2):
+def apply_global_structured_pruning(model, pruning_amount=0.2, vit=True):
     """
     Applies global structured pruning to the model by removing entire filters or neurons.
 
@@ -135,61 +137,52 @@ def apply_global_structured_pruning(model, pruning_amount=0.2):
     Returns:
         nn.Module: The pruned model.
     """
-    # Collect all weights and their L1 norms for structured pruning
-    importance_scores = []
-    parameters_to_prune = []
+    example_inputs = torch.randn(1, 3, 224, 224)
 
-    for name, module in model.named_modules():
-        if isinstance(module, nn.Conv2d):
-            # Calculate L1 norm of each filter (out_channels)
-            weight = module.weight.data.abs().sum(dim=(1, 2, 3))
-            importance_scores.extend(weight.tolist())
-            parameters_to_prune.append((module, 'weight'))
-        elif isinstance(module, nn.Linear):
-            # Calculate L1 norm of each neuron (out_features)
-            weight = module.weight.data.abs().sum(dim=1)
-            importance_scores.extend(weight.tolist())
-            parameters_to_prune.append((module, 'weight'))
+    DG = tp.DependencyGraph()
+    DG.build_dependency(model, example_inputs=example_inputs)
+    
+    imp = tp.importance.GroupNormImportance(p=2)
+    ignored_layers = []
 
-    # Determine the threshold for pruning based on global importance scores
-    threshold = torch.quantile(torch.tensor(importance_scores), pruning_amount)
+    for m in model.modules():
+        if isinstance(m, torch.nn.Linear) and m.out_features == 80:
+            ignored_layers.append(m) # DO NOT prune the final classifier!
+        if vit and isinstance(m, torch.nn.Conv2d):
+            ignored_layers.append(m) # Only prune attention layers
 
-    # Apply structured pruning based on the threshold
-    for module, param_name in parameters_to_prune:
-        weight = getattr(module, param_name)
-        if isinstance(module, nn.Conv2d):
-            mask = weight.data.abs().sum(dim=(1, 2, 3)) > threshold
-            epsilon = 1e-8
-            amount = max(1 - mask.float().mean(), epsilon)
-            prune.ln_structured(module, name=param_name, amount=amount, n=1, dim=0)
-        elif isinstance(module, nn.Linear):
-            mask = weight.data.abs().sum(dim=1) > threshold
-            prune.ln_structured(module, name=param_name, amount=1-mask.float().mean(), n=1, dim=0)
-
-        prune.remove(module, param_name)
-
-    # Calculate pruning statistics
-    total_params, non_zero_params = count_parameters(model)
-    pruning_ratio = 100. * (total_params - non_zero_params) / total_params
-    print(f"Total Parameters: {total_params}")
-    print(f"Non-zero Parameters after Pruning: {non_zero_params}")
-    print(f"Pruning Ratio: {pruning_ratio:.2f}%")
+    print(ignored_layers)
+    pruner = tp.pruner.MetaPruner( # We can always choose MetaPruner if sparse training is not required.
+        model,
+        example_inputs,
+        importance=imp,
+        pruning_ratio=pruning_amount,
+        ignored_layers=ignored_layers,
+    )
+    pruner.step()
 
     return model
 
-
 if __name__ == "__main__":
-    image_encoder = vit_50M(num_classes=1000, include_fc=False)
-    text_encoder = TextEncoder(model_name="distilbert-base-uncased")
-    model = SigCLIP(image_encoder=image_encoder, text_encoder=text_encoder)
+    model = vit_base(num_classes=80)
     
-    # check_sparsity(model)
-    # measure_inference_speed(model)
+    count_parameters(model)
+    measure_inference_speed(model)
     
     prune_ratio = 0.5
     model_unstructured = unstructured_prune_model(deepcopy(model), prune_ratio)
-    # model_structured = apply_global_structured_pruning(deepcopy(model), pruning_amount=prune_ratio)
+    model_structured = apply_global_structured_pruning(deepcopy(model), pruning_amount=prune_ratio, vit=True)
     
+    print(f"After Unstructured")
+    count_parameters(model_unstructured)
+    measure_inference_speed(model_unstructured)
+
+    print(f"After Structured")
+    count_parameters(model_structured)
+    measure_inference_speed(model_structured)
+
+
+
 
     
     

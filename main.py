@@ -50,7 +50,7 @@ def baseline():
     train_dataloader, val_dataloader = get_coco_dataloader(args)
     
     # Load the model
-    model = vit_base(num_classes=80).to(args.device)
+    model = ResNet152(num_classes=80).to(args.device)
 
     num_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total Number of trainable paramters : {num_parameters}")
