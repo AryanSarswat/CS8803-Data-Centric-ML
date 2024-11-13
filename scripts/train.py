@@ -67,7 +67,7 @@ class Trainer:
         
         running_loss = 0.0
         for i, data in enumerate(tqdm(dataloader, desc="Training")):
-            images, labels = data
+            images, labels, _ = data
             images = images.to(self.device, non_blocking=True)
             labels = labels.to(self.device, non_blocking=True)
 
@@ -107,7 +107,7 @@ class Trainer:
         all_labels = []
         with torch.no_grad():
             for i, data in enumerate(tqdm(dataloader, desc="Validating")):
-                images, labels = data
+                images, labels, _ = data
                 images = images.to(self.device, non_blocking=True)
                 labels = labels.to(self.device, non_blocking=True)
 

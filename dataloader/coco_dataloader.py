@@ -42,7 +42,7 @@ class CocoDataset(Dataset):
         for label in labels:
             idx = self.category_to_idx[label]
             one_hot[idx] = 1
-        return image, one_hot
+        return image, one_hot, idx
 
 def get_coco_dataloader(args):
     train_pickle = os.path.join(args.pickle_folder, 'processed_coco_train.pickle')
@@ -86,6 +86,34 @@ def get_coco_dataloader(args):
 
     return train_loader, val_loader
 
+def get_coco_train_subset_dataloader(args, idxs):
+    train_pickle = os.path.join(args.pickle_folder, 'processed_coco_train.pickle')
+    val_pickle = os.path.join(args.pickle_folder, 'processed_coco_val.pickle')
+    category_mapping_pickle = os.path.join(args.pickle_folder, 'cat_id_2_label.pickle')
+    train_images_dir = os.path.join(args.image_data_folder, 'train2017')
+    val_images_dir = os.path.join(args.image_data_folder, 'val2017')  
+
+    train_transform = transforms.Compose([
+        transforms.RandomRotation(10),
+        transforms.RandomHorizontalFlip(),
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ]) 
+
+    # Initialize datasets
+    train_subset_dataset = CocoDataset(
+        data_path=train_pickle,
+        category_mapping_path=category_mapping_pickle,
+        images_dir=train_images_dir,
+        transform=train_transform
+    )
+
+    new_image_info = [train_subset_dataset.image_info[idx] for idx in idxs] 
+    train_subset_dataset.image_info = new_image_info
+    train_subset_loader = DataLoader(train_subset_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    
+    return train_subset_loader
 
 def main():
     # Define paths
