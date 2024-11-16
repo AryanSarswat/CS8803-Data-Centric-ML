@@ -123,6 +123,7 @@ def apply_global_structured_pruning(model, pruning_amount=0.2, vit=True):
     Returns:
         nn.Module: The pruned model.
     """
+    model = model.to(torch.device('cpu'))
     example_inputs = torch.randn(1, 3, 224, 224)
 
     DG = tp.DependencyGraph()
@@ -137,7 +138,6 @@ def apply_global_structured_pruning(model, pruning_amount=0.2, vit=True):
         if vit and isinstance(m, torch.nn.Conv2d):
             ignored_layers.append(m) # Only prune attention layers
 
-    print(ignored_layers)
     pruner = tp.pruner.MetaPruner( # We can always choose MetaPruner if sparse training is not required.
         model,
         example_inputs,
@@ -150,7 +150,8 @@ def apply_global_structured_pruning(model, pruning_amount=0.2, vit=True):
     return model
 
 if __name__ == "__main__":
-    model = vit_base(num_classes=80)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = vit_base(num_classes=80).to(device)
     
     count_parameters(model)
     measure_inference_speed(model)

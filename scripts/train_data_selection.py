@@ -9,19 +9,19 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader, random_split
 
 from dataloader.coco_dataloader import get_coco_dataloader, get_coco_train_subset_dataloader
-from models.vit_vision_encoder import vit_50M
+from models.vit_vision_encoder import vit_base
 
 from scripts.train import Trainer
 from prune.prune import unstructured_prune_model, apply_global_structured_pruning
 from prune.quantize import quantize
-from data_selection.data_selection_techniques import least_confidence, entropy_based
+from data_selection.data_selection_techniques import least_confidence, entropy_based, least_confidence_batch, entropy_based_batch
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_data_folder', default='../coco/images', type=str)
     parser.add_argument('--pickle_folder', default='./', type=str)
     parser.add_argument('--epochs', default=2, type=int)
-    parser.add_argument('--batch_size', default=256, type=int)
+    parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--learning_rate', default=1e-5, type=float)
     parser.add_argument('--weight_decay', default=1e-6, type=float)
     parser.add_argument('--num_workers', default=16, type=int)
@@ -101,8 +101,8 @@ class TrainerDataSelection:
         # **Proxy model: pruning**
         if self.prune_type == "unstructured":
             proxy_model = unstructured_prune_model(deepcopy(self.target_model), self.prune_ratio)
-        #elif self.prune_type == "structured":
-            #proxy_model = apply_global_structured_pruning(deepcopy(self.target_model), self.prune_ratio, vit=True) 
+        elif self.prune_type == "structured":
+            proxy_model = apply_global_structured_pruning(deepcopy(self.target_model), self.prune_ratio, vit=True) 
 
         proxy_model.to(self.device)
 
@@ -126,17 +126,15 @@ class TrainerDataSelection:
                 labels = labels.to(self.args.device, non_blocking=True)
 
                 logits = proxy_model(images)
+
+                prob_dist = torch.nn.functional.softmax(logits[j], dim=1)
                 
-                # loop through each points w/ (idx, score)
-                for j in range(logits.size(0)):
-                    prob_dist = torch.nn.functional.softmax(logits[j], dim=0)
-                    
-                    if self.data_selection_technique == "least_confidence":
-                        score = least_confidence(prob_dist)
-                        scores.append((idxs[j], score))
-                    elif self.data_selection_technique == "max_entropy":
-                        score = entropy_based(prob_dist)
-                        scores.append((idxs[j], score))                        
+                if self.data_selection_technique == "least_confidence":
+                    batch_scores  = least_confidence_batch(prob_dist)
+                    scores.extend(list(zip(idxs.cpu().numpy(), batch_scores.cpu().numpy())))
+                elif self.data_selection_technique == "max_entropy":
+                    batch_scores  = entropy_based_batch(prob_dist)
+                    scores.extend(list(zip(idxs.cpu().numpy(), batch_scores.cpu().numpy())))                      
   
         if self.data_selection_technique == "least_confidence":
             scores.sort(key=lambda x: x[1]) # Sort least confident first
@@ -194,7 +192,7 @@ def test_data_selection():
     train_dataloader, val_dataloader = get_coco_dataloader(args)
 
     # **Initialize Model**
-    target_model = vit_50M(num_classes=80).to(args.device)
+    target_model = vit_base(num_classes=80).to(args.device)
     # **Define Criterion, Optimizer, and Scheduler**
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.SGD(
@@ -212,7 +210,7 @@ def test_data_selection():
         criterion=criterion,
         scheduler=scheduler,
         device=args.device,
-        wandb_log=False,  # Set to True to enable Weights & Biases logging
+        wandb_log=True,  # Set to True to enable Weights & Biases logging
         project_name=args.project_name,
         experiment_name=args.experiment_name,
         test_script=True,  # Set to True to limit the number of batches during testing
@@ -221,10 +219,10 @@ def test_data_selection():
     # **Initialize Trainer with Data Selection**
     trainer_with_data_selection = TrainerDataSelection(
         args=args,
-        data_selection_technique="max_entropy",  # arg
+        data_selection_technique="least_confidence",  # arg
         target_model=target_model, 
         target_trainer=target_trainer,
-        prune_type="unstructured", # arg
+        prune_type="structured", # arg
         prune_ratio =0.5,  # arg
         is_quantized=False, # arg
         s0_pool_percent=0.05,  # arg
