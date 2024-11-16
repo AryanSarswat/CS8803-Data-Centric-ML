@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--learning_rate', default=1e-5, type=float)
     parser.add_argument('--weight_decay', default=1e-6, type=float)
-    parser.add_argument('--num_workers', default=16, type=int)
+    parser.add_argument('--num_workers', default=8, type=int)
     parser.add_argument('--log_wandb', default=True, type=bool)
     parser.add_argument('--project_name', default='svp', type=str)
     parser.add_argument('--experiment_name', default='data_selection', type=str)
@@ -127,7 +127,7 @@ class TrainerDataSelection:
 
                 logits = proxy_model(images)
 
-                prob_dist = torch.nn.functional.softmax(logits[j], dim=1)
+                prob_dist = torch.nn.functional.softmax(logits, dim=1)
                 
                 if self.data_selection_technique == "least_confidence":
                     batch_scores  = least_confidence_batch(prob_dist)
